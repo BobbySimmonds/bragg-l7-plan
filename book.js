@@ -1,6 +1,14 @@
 const START="2026-09-21",END="2026-12-18";
 const FLOORS=[{level:5,desks:32,note:"Temporary overflow"},{level:6,desks:20,note:"No FF&E sheet yet"},{level:7,desks:150,note:"FF&E workstations"},{level:8,desks:152,note:"FF&E workstations"}];
-const state={hadid:localStorage.getItem("bragg_hadid")||"",name:localStorage.getItem("bragg_name")||"",date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),cache:[],today:"2026-09-14",q:""};
+const L7_VILLAGES=[
+  {id:"corp",tag:"Corporate",label:"Corporate Services, Security & Service Management",count:28},
+  {id:"servicedesk",tag:"Service Desk",label:"Service Desk",count:46},
+  {id:"openwp",tag:"Open WP",label:"7.21 Open workpoints · inside Service Desk",count:8,parent:"servicedesk"},
+  {id:"asd",tag:"ASD",label:"ASD",count:28},
+  {id:"dap",tag:"DAP",label:"DAP",count:16},
+  {id:"infra",tag:"Infra",label:"Infrastructure",count:32}
+];
+const state={hadid:localStorage.getItem("bragg_hadid")||"",name:localStorage.getItem("bragg_name")||"",date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),cache:[],today:"2026-09-14",q:"",village:null};
 const $=id=>document.getElementById(id);
 const weekday=iso=>new Date(iso+"T00:00:00Z").getUTCDay();
 const addDays=(iso,n)=>{const [y,m,d]=iso.split("-").map(Number);return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10)};
@@ -16,6 +24,17 @@ function mineRows(){return state.cache.filter(b=>b.mine).sort((a,b)=>a.date.loca
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
 function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
+function villageOf(level,desk){
+  if(Number(level)!==7) return null;
+  if(desk>=1&&desk<=28) return L7_VILLAGES.find(v=>v.id==="asd");
+  if(desk>=29&&desk<=44) return L7_VILLAGES.find(v=>v.id==="dap");
+  if(desk>=45&&desk<=76) return L7_VILLAGES.find(v=>v.id==="infra");
+  if(desk>=111&&desk<=118) return L7_VILLAGES.find(v=>v.id==="openwp");
+  if(desk>=77&&desk<=122) return L7_VILLAGES.find(v=>v.id==="servicedesk");
+  if(desk>=123&&desk<=150) return L7_VILLAGES.find(v=>v.id==="corp");
+  return null;
+}
+function villageOk(v,filter){if(!filter)return true;if(!v)return false;if(v.id===filter)return true;return filter==="servicedesk"&&v.parent==="servicedesk"}
 async function api(method,path,body){const res=await fetch(path,{method,headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,cache:"no-store"});const json=await res.json().catch(()=>({ok:false,error:"Could not read response."}));json.status=res.status;if(!res.ok&&!json.error)json.error="Something went wrong.";return json;}
 function enterBook(){$("whoChipText").textContent=state.name+" · "+state.hadid;$("whoChip").classList.add("show");$("screenWho").classList.add("hidden");$("screenBook").classList.remove("hidden")}
 function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").classList.remove("hidden")}
@@ -24,19 +43,32 @@ function paintMine(){
   $("mineHint").textContent=rows.length?rows.length+" booked · tap a row to jump there":"Nothing booked yet. Your days will sit here.";
   if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick Mon–Fri in this week. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
-    const locked=r.date<=state.today,on=r.date===state.date;
-    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
+    const locked=r.date<=state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
+    const tag=v?'<span class="mine-tag v-'+v.id+'">'+v.tag+'</span>':"";
+    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+tag+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
   }).join("")+"</tbody></table>";
-  $("mineTable").querySelectorAll("[data-jump]").forEach(el=>el.onclick=()=>{state.date=el.dataset.jump;state.week=mondayOf(state.date);state.level=Number(el.dataset.level);localStorage.setItem("bragg_level",String(state.level));paint();});
+  $("mineTable").querySelectorAll("[data-jump]").forEach(el=>el.onclick=()=>{state.date=el.dataset.jump;state.week=mondayOf(state.date);state.level=Number(el.dataset.level);state.village=null;state.q="";if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
   $("mineTable").querySelectorAll("[data-cancel]").forEach(el=>el.onclick=async()=>{const row=rows.find(r=>r.id===el.dataset.cancel);if(!row||!row.id)return;const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});$("deskMsg").textContent=out.ok?"Cancelled.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
 }
 function deskList(){
   const floor=floorOf(state.level);
   const all=Array.from({length:floor.desks},(_,i)=>i+1);
   const q=(state.q||"").trim().toLowerCase();
-  if(!q) return all;
   const stripped=q.replace(/^ws[78]\.?/,"");
-  return all.filter(n=>{const label=deskName(state.level,n).toLowerCase();return label.includes(q)||String(n).includes(stripped)});
+  return all.filter(n=>{
+    const v=villageOf(state.level,n);
+    if(!villageOk(v,state.village)) return false;
+    if(!q) return true;
+    const hay=[deskName(state.level,n),String(n),v&&v.tag,v&&v.label,v&&v.id].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q)||String(n).includes(stripped);
+  });
+}
+function paintVillages(){
+  const el=$("villages");
+  if(!el) return;
+  if(state.level!==7){el.innerHTML="";return;}
+  el.innerHTML='<button class="vchip '+(state.village===null?"on":"")+'" data-v="">All<small>150 desks</small></button>'+L7_VILLAGES.map(v=>'<button class="vchip v-'+v.id+' '+(state.village===v.id?"on":"")+'" data-v="'+v.id+'" title="'+v.label+'"><i class="swatch"></i>'+v.tag+'<small>'+v.count+' desks</small></button>').join("");
+  el.querySelectorAll("[data-v]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.v||null;state.village=id&&state.village===id?null:id;paint();});
 }
 function paint(){
   $("weekLabel").textContent=weekLabel(state.week);
@@ -50,15 +82,23 @@ function paint(){
   }).join("");
   $("days").querySelectorAll(".day:not([disabled])").forEach(el=>el.onclick=()=>{state.date=el.dataset.day;paint();});
   $("floors").innerHTML=FLOORS.map(f=>'<button class="day '+(f.level===state.level?"on":"")+'" data-level="'+f.level+'"><div>Level</div><b>'+f.level+'</b><small>'+f.desks+' desks</small></button>').join("");
-  $("floors").querySelectorAll("[data-level]").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);state.q="";if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
+  $("floors").querySelectorAll("[data-level]").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);state.q="";state.village=null;if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
+  paintVillages();
   const floor=floorOf(state.level);
-  $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks";
-  if($("deskQ") && !$("deskQ").placeholder) $("deskQ").placeholder=state.level===7?"e.g. WS7.42":state.level===8?"e.g. WS8.18":"e.g. 12";
+  const vf=L7_VILLAGES.find(v=>v.id===state.village);
+  $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks"+(vf?" · "+vf.tag:"");
+  if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or ASD":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
   const by=new Map(state.cache.filter(b=>b.date===state.date&&b.level===state.level).map(b=>[b.desk,b]));
   const list=deskList();
-  $("grid").innerHTML=list.map(n=>{const row=by.get(n),cls=past?"past":row?(row.mine?"mine":"taken"):"free";const sub=row?(row.mine?"Yours":(row.name||"Booked")):(past?"Closed":"Open");return '<button class="desk '+cls+'" data-desk="'+n+'" '+(past||(row&&!row.mine)?"disabled":"")+'><b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';}).join("")||'<p class="hint">No workstation matches that search.</p>';
-  $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=async()=>{const n=Number(el.dataset.desk);if(!confirm("Book "+deskName(state.level,n)+" on "+fmt(state.date)+"?"))return;const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});$("deskMsg").textContent=out.ok?"You're booked.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
+  $("grid").innerHTML=list.map(n=>{
+    const row=by.get(n),v=villageOf(state.level,n);
+    const cls=(past?"past":row?(row.mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
+    const tag=v?'<span class="tag">'+v.tag+'</span>':"";
+    const sub=row?(row.mine?"Yours":(row.name||"Booked")):(past?"Closed":"Open");
+    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(past||(row&&!row.mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
+  }).join("")||'<p class="hint">No workstation matches that search.</p>';
+  $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=async()=>{const n=Number(el.dataset.desk);const v=villageOf(state.level,n);if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});$("deskMsg").textContent=out.ok?"You're booked.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
   $("grid").querySelectorAll(".desk.mine").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id)return;const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});$("deskMsg").textContent=out.ok?"Cancelled.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
   paintMine();
 }
