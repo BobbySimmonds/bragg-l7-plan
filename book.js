@@ -1,5 +1,6 @@
-const START="2026-09-21",END="2026-12-18",FLOORS=[{level:5,desks:20},{level:6,desks:20},{level:7,desks:20},{level:8,desks:20}];
-const state={hadid:localStorage.getItem("bragg_hadid")||"",name:localStorage.getItem("bragg_name")||"",date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),cache:[],today:"2026-09-11"};
+const START="2026-09-21",END="2026-12-18";
+const FLOORS=[{level:5,desks:32,note:"Temporary overflow"},{level:6,desks:20,note:"No FF&E sheet yet"},{level:7,desks:150,note:"FF&E workstations"},{level:8,desks:152,note:"FF&E workstations"}];
+const state={hadid:localStorage.getItem("bragg_hadid")||"",name:localStorage.getItem("bragg_name")||"",date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),cache:[],today:"2026-09-14",q:""};
 const $=id=>document.getElementById(id);
 const weekday=iso=>new Date(iso+"T00:00:00Z").getUTCDay();
 const addDays=(iso,n)=>{const [y,m,d]=iso.split("-").map(Number);return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10)};
@@ -12,6 +13,9 @@ function firstOpen(mon){return weekDays(mon).find(d=>d>=state.today)||weekDays(m
 function weekHasOpen(mon){return weekDays(mon).some(d=>d>=state.today)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function mineRows(){return state.cache.filter(b=>b.mine).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
+function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
+function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
+function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 async function api(method,path,body){const res=await fetch(path,{method,headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,cache:"no-store"});const json=await res.json().catch(()=>({ok:false,error:"Could not read response."}));json.status=res.status;if(!res.ok&&!json.error)json.error="Something went wrong.";return json;}
 function enterBook(){$("whoChipText").textContent=state.name+" · "+state.hadid;$("whoChip").classList.add("show");$("screenWho").classList.add("hidden");$("screenBook").classList.remove("hidden")}
 function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").classList.remove("hidden")}
@@ -21,10 +25,18 @@ function paintMine(){
   if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick Mon–Fri in this week. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
     const locked=r.date<=state.today,on=r.date===state.date;
-    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+String(r.desk).padStart(2,"0")+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
+    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
   }).join("")+"</tbody></table>";
   $("mineTable").querySelectorAll("[data-jump]").forEach(el=>el.onclick=()=>{state.date=el.dataset.jump;state.week=mondayOf(state.date);state.level=Number(el.dataset.level);localStorage.setItem("bragg_level",String(state.level));paint();});
   $("mineTable").querySelectorAll("[data-cancel]").forEach(el=>el.onclick=async()=>{const row=rows.find(r=>r.id===el.dataset.cancel);if(!row||!row.id)return;const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});$("deskMsg").textContent=out.ok?"Cancelled.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
+}
+function deskList(){
+  const floor=floorOf(state.level);
+  const all=Array.from({length:floor.desks},(_,i)=>i+1);
+  const q=(state.q||"").trim().toLowerCase();
+  if(!q) return all;
+  const stripped=q.replace(/^ws[78]\.?/,"");
+  return all.filter(n=>{const label=deskName(state.level,n).toLowerCase();return label.includes(q)||String(n).includes(stripped)});
 }
 function paint(){
   $("weekLabel").textContent=weekLabel(state.week);
@@ -33,17 +45,20 @@ function paint(){
   const mine=mineRows();
   $("days").innerHTML=weekDays(state.week).map(d=>{
     const booked=mine.find(b=>b.date===d),past=d<state.today;
-    const sub=booked?("L"+booked.level+"·"+String(booked.desk).padStart(2,"0")):(past?"Past":"Open");
+    const sub=booked?deskShort(booked.level,booked.desk):(past?"Past":"Open");
     return '<button class="day '+(d===state.date?"on":"")+(past?" past":"")+'" data-day="'+d+'" '+(past?"disabled":"")+'><b>'+Number(d.slice(8))+'</b><div>'+fmt(d).slice(0,3)+'</div><small>'+sub+'</small></button>';
   }).join("");
   $("days").querySelectorAll(".day:not([disabled])").forEach(el=>el.onclick=()=>{state.date=el.dataset.day;paint();});
-  $("floors").innerHTML=FLOORS.map(f=>'<button class="day '+(f.level===state.level?"on":"")+'" data-level="'+f.level+'"><div>Level</div><b>'+f.level+'</b></button>').join("");
-  $("floors").querySelectorAll("[data-level]").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);localStorage.setItem("bragg_level",String(state.level));paint();});
-  $("dayHint").textContent=fmt(state.date)+" · Level "+state.level;
+  $("floors").innerHTML=FLOORS.map(f=>'<button class="day '+(f.level===state.level?"on":"")+'" data-level="'+f.level+'"><div>Level</div><b>'+f.level+'</b><small>'+f.desks+' desks</small></button>').join("");
+  $("floors").querySelectorAll("[data-level]").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);state.q="";if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
+  const floor=floorOf(state.level);
+  $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks";
+  if($("deskQ") && !$("deskQ").placeholder) $("deskQ").placeholder=state.level===7?"e.g. WS7.42":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
   const by=new Map(state.cache.filter(b=>b.date===state.date&&b.level===state.level).map(b=>[b.desk,b]));
-  $("grid").innerHTML=Array.from({length:20},(_,i)=>{const n=i+1,row=by.get(n),cls=past?"past":row?(row.mine?"mine":"taken"):"free";const sub=row?(row.mine?"Yours":(row.name||"Booked")):(past?"Closed":"Available");return '<button class="desk '+cls+'" data-desk="'+n+'" '+(past||(row&&!row.mine)?"disabled":"")+'><div>LEVEL '+state.level+'</div><b>Desk '+String(n).padStart(2,"0")+'</b><div>'+sub+'</div></button>';}).join("");
-  $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=async()=>{if(!confirm("Book Level "+state.level+" · Desk "+String(el.dataset.desk).padStart(2,"0")+" on "+fmt(state.date)+"?"))return;const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:Number(el.dataset.desk)});$("deskMsg").textContent=out.ok?"You're booked.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
+  const list=deskList();
+  $("grid").innerHTML=list.map(n=>{const row=by.get(n),cls=past?"past":row?(row.mine?"mine":"taken"):"free";const sub=row?(row.mine?"Yours":(row.name||"Booked")):(past?"Closed":"Open");return '<button class="desk '+cls+'" data-desk="'+n+'" '+(past||(row&&!row.mine)?"disabled":"")+'><b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';}).join("")||'<p class="hint">No workstation matches that search.</p>';
+  $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=async()=>{const n=Number(el.dataset.desk);if(!confirm("Book "+deskName(state.level,n)+" on "+fmt(state.date)+"?"))return;const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});$("deskMsg").textContent=out.ok?"You're booked.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
   $("grid").querySelectorAll(".desk.mine").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id)return;const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});$("deskMsg").textContent=out.ok?"Cancelled.":(out.error||"");$("deskMsg").className="msg "+(out.ok?"ok":"");await refresh();paint();});
   paintMine();
 }
@@ -53,5 +68,6 @@ $("whoBtn").onclick=async()=>{const hadid=$("hadid").value.trim();if(!hadid){$("
 $("backWho").onclick=$("changeWho").onclick=()=>leaveBook();
 $("prevWeek").onclick=()=>{state.week=clampWeek(addDays(state.week,-7));state.date=firstOpen(state.week);paint();};
 $("nextWeek").onclick=()=>{state.week=clampWeek(addDays(state.week,7));state.date=firstOpen(state.week);paint();};
+if($("deskQ")) $("deskQ").oninput=()=>{state.q=$("deskQ").value;paint();};
 $("hadid").value=state.hadid;
 api("GET","/api/bookings?meta=1").then(async m=>{if(m.today)state.today=m.today;bootWeek();if(state.hadid){const who=await api("GET","/api/bookings?who=1&hadid="+encodeURIComponent(state.hadid));if(who.ok){state.name=who.name;enterBook();await refresh();paint();}}});
