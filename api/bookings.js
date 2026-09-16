@@ -167,8 +167,21 @@ function addDays(iso, n) {
   const parts = String(iso).split("-").map(Number);
   return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + n)).toISOString().slice(0, 10);
 }
+function isWeekend(iso) {
+  const d = new Date(String(iso) + "T00:00:00Z").getUTCDay();
+  return d === 0 || d === 6;
+}
+function weekdayHorizon(day) {
+  let d = day || today();
+  let count = isWeekend(d) ? 0 : 1;
+  while (count < ADVANCE_DAYS) {
+    d = addDays(d, 1);
+    if (!isWeekend(d)) count += 1;
+  }
+  return d;
+}
 function bookHorizon(day) {
-  const limit = addDays(day || today(), ADVANCE_DAYS);
+  const limit = weekdayHorizon(day || today());
   return limit < END ? limit : END;
 }
 function header(req, name) {
@@ -323,7 +336,7 @@ module.exports = async function handler(req, res) {
       const floor = floorOf(level);
       const dow = new Date(date + "T00:00:00Z").getUTCDay();
       const day = today();
-      if (date > bookHorizon(day)) return send(res, 400, { ok: false, error: "You can only book up to 7 days ahead." });
+      if (date > bookHorizon(day)) return send(res, 400, { ok: false, error: "You can only book the next 7 weekdays." });
       if (!(date >= START) || date > END || date < day || dow === 0 || dow === 6) return send(res, 400, { ok: false, error: "That day is not bookable." });
       if (!floor || floor.enabled === false || !(desk >= 1) || desk > floor.desks) return send(res, 400, { ok: false, error: floor && floor.enabled === false ? "That level is not in use." : "That desk does not exist." });
       const rows = await load();

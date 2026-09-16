@@ -164,14 +164,17 @@ try{
 }catch(e){}
 const $=id=>document.getElementById(id);
 const weekday=iso=>new Date(iso+"T00:00:00Z").getUTCDay();
+function isWeekend(iso){const d=weekday(iso);return d===0||d===6}
+function weekdayHorizon(today){let d=today,c=isWeekend(d)?0:1;while(c<ADVANCE){d=addDays(d,1);if(!isWeekend(d))c++}return d}
+function bookHorizon(today){const limit=weekdayHorizon(today);return limit<END?limit:END}
 const addDays=(iso,n)=>{const [y,m,d]=iso.split("-").map(Number);return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10)};
 const fmt=iso=>new Date(iso+"T00:00:00Z").toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"});
 const mondayOf=iso=>{const d=weekday(iso);return addDays(iso,d===0?-6:1-d)};
 const firstWeek=mondayOf(START),lastWeek=mondayOf(END);
 function weekDays(mon){return [0,1,2,3,4].map(i=>addDays(mon,i)).filter(d=>d>=START&&d<=END)}
 function weekLabel(mon){const days=weekDays(mon);if(!days.length)return "";const a=days[0],b=days[days.length-1];const left=new Date(a+"T00:00:00Z").toLocaleDateString("en-AU",{day:"numeric",month:a.slice(0,7)===b.slice(0,7)?undefined:"short",timeZone:"UTC"});const right=new Date(b+"T00:00:00Z").toLocaleDateString("en-AU",{day:"numeric",month:"short",timeZone:"UTC"});return left+" – "+right}
-function firstOpen(mon){const h=addDays(state.today,ADVANCE);return weekDays(mon).find(d=>d>=state.today&&d<=h)||weekDays(mon).find(d=>d>=state.today)||weekDays(mon)[0]||mon}
-function weekHasOpen(mon){const h=addDays(state.today,ADVANCE);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
+function firstOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).find(d=>d>=state.today&&d<=h)||weekDays(mon).find(d=>d>=state.today)||weekDays(mon)[0]||mon}
+function weekHasOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function persistCache(){
   localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",name:b.name||""}))));
@@ -208,7 +211,7 @@ function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").clas
 function paintMine(){
   const rows=mineRows();
   $("mineHint").textContent=rows.length?rows.length+" booked · tap a row to jump there":"Nothing booked yet. Your days will sit here.";
-  if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick a day in the next 7 days. Each day can hold one desk.</div>';return;}
+  if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick a day in the next 7 weekdays. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
     const locked=r.date<=state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
     const tag=v?'<span class="mine-tag v-'+v.id+'">'+v.tag+'</span>':"";
@@ -241,7 +244,7 @@ function nid(){return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36
 async function bookDesk(n){
   if(state.date<state.today) return;
   const fl=floorOf(state.level);if(fl&&fl.enabled===false){$("deskMsg").textContent="That level is not in use.";$("deskMsg").className="msg";return;}
-  if(state.date>addDays(state.today,ADVANCE)){$("deskMsg").textContent="You can only book up to 7 days ahead.";$("deskMsg").className="msg";return;}
+  if(state.date>bookHorizon(state.today)){$("deskMsg").textContent="You can only book the next 7 weekdays.";$("deskMsg").className="msg";return;}
   const v=villageOf(state.level,n);
   if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;
   const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});
@@ -263,7 +266,7 @@ function paint(){
   $("prevWeek").disabled=!(weekHasOpen(addDays(state.week,-7))&&addDays(state.week,-7)>=firstWeek);
   $("nextWeek").disabled=!weekHasOpen(addDays(state.week,7));
   const mine=mineRows();
-  const h=addDays(state.today,ADVANCE);
+  const h=bookHorizon(state.today);
   $("days").innerHTML=weekDays(state.week).map(d=>{
     const booked=mine.find(b=>b.date===d),past=d<state.today,far=d>h,locked=past||far;
     const sub=booked?deskShort(booked.level,booked.desk):(past?"Past":far?"Later":"Open");
@@ -283,7 +286,7 @@ function paint(){
   }
   if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or ASD":"e.g. 12";
   const past=state.date<state.today;
-  const far=state.date>addDays(state.today,ADVANCE);
+  const far=state.date>bookHorizon(state.today);
   const closed=past||far;
   const by=new Map(state.cache.filter(b=>b.date===state.date&&b.level===state.level).map(b=>[b.desk,b]));
   const list=deskList();
