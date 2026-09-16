@@ -141,6 +141,8 @@ const ROSTER = {
   wgalpi01: { name: "wgalpi01" }
 };
 const BOOKINGS_KEY = "bragg:bookings";
+const SEED=[["b_mtviynwo_nqhlcd","2026-09-21",5,1,"demo0001","Sam","2026-09-10T12:49:59.688Z"],["b_mtwkaisr_e9a3h3","2026-09-21",5,2,"lmendo01","Lawrence Mendonca","2026-09-11T06:14:58.731Z"],["b_mtw5mfla_1nf7o9","2026-09-21",5,3,"acousi03","Alison","2026-09-10T23:24:20.206Z"],["b_mtzjqx4n_wkmsy7","2026-09-21",5,4,"jpenov01","Jasminka Penov","2026-09-13T08:23:02.711Z"],["b_mu0fsv4n_qy40c9","2026-09-21",5,5,"kjenki06","Katrina Jenkins","2026-09-13T23:20:21.143Z"],["b_mu0fynq8_qrnaye","2026-09-21",5,6,"ytuong01","Yvonne Tuong","2026-09-13T23:24:51.488Z"],["b_mtviynwo_7qfllh","2026-09-21",5,8,"demo0002","Priya","2026-09-10T12:49:59.688Z"],["b_mu0emenf_f3fb3m","2026-09-21",5,9,"cwilke06","Carmel Wilkes","2026-09-13T22:47:20.235Z"],["b_mu0gj2gh_2dk4jj","2026-09-21",5,10,"nrusso02","Nicolla Russo","2026-09-13T23:40:43.697Z"],["b_mu0hm93p_8sx53v","2026-09-21",5,11,"sthoma10","Sonya Thomas","2026-09-14T00:11:11.893Z"],["b_mu0fs0f9_myohii","2026-09-21",5,13,"lshaw03","Lisa Shaw","2026-09-13T23:19:41.349Z"],["b_mu0gsfo8_wxh3n2","2026-09-21",5,15,"wilksk","Krystyna Wilks","2026-09-13T23:48:00.728Z"],["b_mu0fl6l1_6obsv6","2026-09-21",5,16,"averma05","Apoorva Verma","2026-09-13T23:14:22.741Z"],["b_mtviyv24_1hs7ke","2026-09-21",5,18,"testbobby","Bobby","2026-09-10T12:50:08.956Z"],["b_mtwjn2a5_pjpf03","2026-09-21",6,2,"bsimmo01","Bobby Simmonds","2026-09-11T05:56:44.237Z"],["b_mtwjxob3_vyihiz","2026-09-21",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:04:59.343Z"],["b_mu0idubm_4xmzns","2026-09-21",7,2,"mtucke01","Melissa Tucker","2026-09-14T00:32:39.106Z"],["b_mu21nxzf_esmop5","2026-09-21",7,76,"dhc000820","dhc000820","2026-09-15T02:20:09.291Z"],["b_mtwkac6o_xb8qiv","2026-09-22",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:14:50.160Z"],["b_mtzjth82_q72h17","2026-09-22",5,4,"jpenov01","Jasminka Penov","2026-09-13T08:25:02.066Z"],["b_mu0hnemp_1nmqp1","2026-09-22",5,11,"sthoma10","Sonya Thomas","2026-09-14T00:12:05.713Z"],["b_mtviynwo_ev500r","2026-09-22",5,12,"demo0003","Tom","2026-09-10T12:49:59.688Z"],["b_mu0fse1g_xg43d3","2026-09-22",5,13,"lshaw03","Lisa Shaw","2026-09-13T23:19:58.996Z"],["b_mu0j0y5z_q0k2rb","2026-09-22",5,19,"sdey01","Shelli Dey","2026-09-14T00:50:37.175Z"],["b_mtwjmydf_rsteep","2026-09-22",6,1,"bsimmo01","Bobby Simmonds","2026-09-11T05:56:39.171Z"],["b_mtviynwo_uzvast","2026-09-23",5,5,"demo0004","Jess","2026-09-10T12:49:59.688Z"],["b_mtwjn9ni_n4shvq","2026-09-23",6,3,"bsimmo01","Bobby Simmonds","2026-09-11T05:56:53.790Z"],["b_mtwjxyqz_43xdwf","2026-09-23",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:05:12.875Z"],["b_mtwkaop8_0fwfju","2026-09-24",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:06.380Z"],["b_mtzjtns7_fwl275","2026-09-24",5,4,"jpenov01","Jasminka Penov","2026-09-13T08:25:10.567Z"],["b_mu0hnk3e_6qh0g7","2026-09-24",5,10,"sthoma10","Sonya Thomas","2026-09-14T00:12:12.794Z"],["b_mu0iqfdr_9idwtz","2026-09-24",5,19,"sdey01","Shelli Dey","2026-09-14T00:42:26.271Z"],["b_mu0f47z3_aiwwq9","2026-09-24",5,20,"gk","George Killis","2026-09-13T23:01:11.391Z"],["b_mu0fskx6_tprp1a","2026-09-25",5,13,"lshaw03","Lisa Shaw","2026-09-13T23:20:07.914Z"],["b_mu0ej0y9_o0bpw2","2026-09-25",5,20,"gk","George Killis","2026-09-13T22:44:42.513Z"],["b_mtwjy2nq_dn9s8a","2026-09-25",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:05:17.942Z"],["b_mtwkb1rb_dcfqig","2026-09-28",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:23.303Z"],["b_mtwk4n8g_l6vb3a","2026-09-28",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:10:24.544Z"],["b_mtwkb4vk_vrcg0a","2026-09-29",5,2,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:27.344Z"],["b_mtwk4sph_wzzaxe","2026-09-30",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:10:31.637Z"],["b_mtwkba8s_y74y8x","2026-10-01",5,3,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:34.300Z"],["b_mtwk4wxy_1ielma","2026-10-02",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:10:37.126Z"],["b_mtwkbgyy_kwe2w9","2026-10-05",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:43.018Z"],["b_mtwkbjuj_815c4o","2026-10-06",5,2,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:46.747Z"],["b_mtwkbr16_k3c7r4","2026-10-08",5,20,"lmendo01","Lawrence Mendonca","2026-09-11T06:15:56.058Z"],["b_mtwkc0es_2jcrgq","2026-10-12",5,5,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:08.212Z"],["b_mtwkc2qd_nr1wam","2026-10-13",5,8,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:11.221Z"],["b_mtwk5tzr_lkdr5k","2026-10-14",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:11:19.959Z"],["b_mu0ies90_1dyuhi","2026-10-14",7,12,"mtucke01","Melissa Tucker","2026-09-14T00:33:23.076Z"],["b_mtwkc68h_ckmizr","2026-10-15",5,18,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:15.761Z"],["b_mtwk5x7p_tpndsc","2026-10-16",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:11:24.133Z"],["b_mtwkcb38_jteob0","2026-10-19",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:22.052Z"],["b_mtwk64xq_17mhf3","2026-10-19",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:11:34.142Z"],["b_mtwkcdu5_oms7by","2026-10-20",5,2,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:25.613Z"],["b_mtwk69sk_tecq8f","2026-10-21",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:11:40.436Z"],["b_mtwkcglj_egxtxc","2026-10-22",5,3,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:29.191Z"],["b_mtwk6lwu_wjujkm","2026-10-23",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:11:56.142Z"],["b_mtwkcmwz_vlb1gr","2026-10-26",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:37.379Z"],["b_mtwk6shr_kq06sa","2026-10-26",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:12:04.671Z"],["b_mtwkcs6z_r65d8s","2026-10-27",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:44.219Z"],["b_mtwk6wnn_2eptfo","2026-10-28",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:12:10.067Z"],["b_mtwkcxcu_9xkvkc","2026-10-29",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:16:50.910Z"],["b_mtwk6zsf_op0zco","2026-10-30",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:12:14.127Z"],["b_mtwkd4lf_za08pa","2026-11-02",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:00.291Z"],["b_mtwk76wd_ohhopp","2026-11-02",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:12:23.341Z"],["b_mtwkd72n_z16djw","2026-11-03",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:03.503Z"],["b_mtwkda7v_ll2msg","2026-11-05",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:07.579Z"],["b_mtwkdf86_txfu2d","2026-11-09",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:14.070Z"],["b_mtwkdjc7_8fuhfh","2026-11-10",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:19.399Z"],["b_mtwkdmf6_sxmv7s","2026-11-12",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:23.394Z"],["b_mtwkdrx3_ccvvig","2026-11-16",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:30.519Z"],["b_mtwkduif_5i7g87","2026-11-17",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:33.879Z"],["b_mtwk86mw_erfh36","2026-11-18",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:09.656Z"],["b_mtwkdwwu_irzcoz","2026-11-19",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:36.990Z"],["b_mtwk89rg_7enmyv","2026-11-20",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:13.708Z"],["b_mtwke4go_ijph16","2026-11-23",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:46.776Z"],["b_mtwk8f58_t82v64","2026-11-23",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:20.684Z"],["b_mtwke7dn_wjwxsp","2026-11-24",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:50.555Z"],["b_mtwk8j4x_y9rvul","2026-11-25",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:25.857Z"],["b_mtwke9sc_0m2jc4","2026-11-26",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:17:53.676Z"],["b_mtwk8mwp_cwl1ks","2026-11-27",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:30.745Z"],["b_mtwkem3c_5clyap","2026-11-30",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:18:09.624Z"],["b_mtwk8vaq_k2orei","2026-11-30",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:41.618Z"],["b_mtwkepw0_t6onsv","2026-12-01",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:18:14.544Z"],["b_mtwk8z46_x98raf","2026-12-02",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:46.566Z"],["b_mtwkesce_9sw35y","2026-12-03",5,1,"lmendo01","Lawrence Mendonca","2026-09-11T06:18:17.726Z"],["b_mtwk93dj_i7wdbn","2026-12-04",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:13:52.087Z"],["b_mtwk9ig5_5yqr5h","2026-12-07",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:11.621Z"],["b_mtwk9lhe_qt465j","2026-12-09",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:15.554Z"],["b_mtwk9o6x_pdckhs","2026-12-11",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:19.065Z"],["b_mtwk9txj_n27ev8","2026-12-14",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:26.503Z"],["b_mtwk9wpb_bi46do","2026-12-16",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:30.095Z"],["b_mtwka02r_gcydzw","2026-12-18",7,1,"bcorma02","Brenda Cormack","2026-09-11T06:14:34.467Z"]];
+function fromSeed(s){return {id:s[0],date:s[1],level:s[2],desk:s[3],hadid:s[4],name:s[5],createdAt:s[6]};}
 const g = globalThis;
 if (!g.__braggBookings__) g.__braggBookings__ = [];
 let redisClient = undefined;
@@ -206,14 +208,18 @@ async function load() {
       const raw = await r.get(BOOKINGS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed && Array.isArray(parsed.bookings)) return parsed.bookings;
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (parsed && Array.isArray(parsed.bookings) && parsed.bookings.length) return parsed.bookings;
       }
     } catch (e) {
       console.error("redis_load", e);
     }
   }
-  return g.__braggBookings__;
+  if (g.__braggBookings__ && g.__braggBookings__.length) return g.__braggBookings__;
+  const seeded = SEED.map(fromSeed);
+  g.__braggBookings__ = seeded;
+  try { await save(seeded); } catch (e) { console.error("seed_save", e); }
+  return seeded;
 }
 async function save(bookings) {
   g.__braggBookings__ = bookings;
@@ -242,7 +248,7 @@ function readBody(req) {
     if (req.body && typeof req.body === "object") return resolve(req.body);
     let raw = "";
     if (typeof req.on !== "function") return resolve({});
-    req.on("data", function (c) { raw += c; if (raw.length > 20000) reject(new Error("too_large")); });
+    req.on("data", function (c) { raw += c; if (raw.length > 400000) reject(new Error("too_large")); });
     req.on("end", function () {
       if (!raw) return resolve({});
       try { resolve(JSON.parse(raw)); } catch (e) { reject(new Error("bad_json")); }
@@ -279,6 +285,30 @@ module.exports = async function handler(req, res) {
     }
     if (req.method === "POST") {
       const body = await readBody(req);
+      if (body && body.restore && who.admin) {
+        const incoming = Array.isArray(body.bookings) ? body.bookings : [];
+        const rows = await load();
+        const bySlot = {};
+        rows.forEach(function (r) { bySlot[r.date + "|" + r.level + "|" + r.desk] = r; });
+        incoming.forEach(function (r) {
+          const date = String(r.date || "");
+          const level = Number(r.level);
+          const desk = Number(r.desk);
+          const hid = hadidOf(r.hadid);
+          if (!date || !hid || !level || !desk) return;
+          const key = date + "|" + level + "|" + desk;
+          const prev = bySlot[key];
+          bySlot[key] = {
+            id: prev && prev.id ? prev.id : (r.id || nid()),
+            date: date, level: level, desk: desk, hadid: hid,
+            name: r.name || (rosterOf(hid) && rosterOf(hid).name) || hid,
+            createdAt: (prev && prev.createdAt) || r.createdAt || new Date().toISOString()
+          };
+        });
+        const next = Object.keys(bySlot).map(function (k) { return bySlot[k]; });
+        await save(next);
+        return send(res, 200, { ok: true, restored: next.length });
+      }
       const hid = hadidOf(body.hadid);
       const person = rosterOf(hid);
       if (!person) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
