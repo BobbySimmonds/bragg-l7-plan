@@ -149,8 +149,8 @@ function rosterName(id){
 const state={
   hadid:(localStorage.getItem("bragg_hadid")||"").toLowerCase(),
   name:localStorage.getItem("bragg_name")||"",
-  date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),
-  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null
+  date:START,week:START,level:Number(localStorage.getItem("bragg_level")||7),
+  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false
 };
 try{
   const saved=JSON.parse(localStorage.getItem("bragg_bookings")||"[]");
@@ -271,6 +271,11 @@ function paint(){
   const floor=floorOf(state.level);
   const vf=L7_VILLAGES.find(v=>v.id===state.village);
   $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks"+(vf?" · "+vf.tag:"");
+  if($("occHint")){
+    const n=state.cache.filter(b=>b.date===state.date&&b.level===state.level).length;
+    $("occHint").textContent=state.live?("Live shared board · "+n+" taken on Level "+state.level):"If the board is not live, you will only see desks booked on this device.";
+    $("occHint").style.color=state.live?"var(--good)":"";
+  }
   if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or T&I":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
   const far=state.date>addDays(state.today,ADVANCE);
@@ -282,7 +287,7 @@ function paint(){
     const mine=row&&(row.mine||row.hadid===state.hadid);
     const cls=(closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=row?(mine?"Yours":(row.name||"Booked")):(closed?"Closed":"Open");
+    const sub=row?(mine?"Yours":("Taken · "+(row.name||"Booked"))):(closed?"Closed":"Open");
     return '<button class="desk '+cls+'" data-desk="'+n+'" '+(closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
@@ -292,12 +297,15 @@ function paint(){
 async function refresh(){
   const data=await api("GET","/api/bookings?hadid="+encodeURIComponent(state.hadid));
   if(data.ok){
+    state.live=true;
     state.cache=(data.bookings||[]).map(b=>({
       id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||state.hadid)),
       date:b.date,level:Number(b.level),desk:Number(b.desk),
       hadid:b.mine?state.hadid:(b.hadid||""),name:b.name||"Booked",mine:!!b.mine
     }));
     persistCache();
+  }else{
+    state.live=false;
   }
   if(data.today) state.today=data.today;
 }
@@ -330,3 +338,7 @@ if(state.hadid && rosterName(state.hadid)){
 }else{
   paint();
 }
+setInterval(function(){ if(state.hadid && rosterName(state.hadid)) refresh().then(paint); }, 15000);
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="visible" && state.hadid && rosterName(state.hadid)) refresh().then(paint);
+});
