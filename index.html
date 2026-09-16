@@ -33,7 +33,7 @@ input{width:100%;border-radius:16px;border:1px solid var(--line);background:rgba
 .desk{min-height:86px;border-radius:14px;border:1px solid var(--line);border-left:5px solid var(--line);background:rgba(8,16,28,.88);color:var(--text);text-align:left;padding:12px 12px 10px;cursor:pointer;font:600 12px Outfit,sans-serif}
 .desk b{display:block;font-size:14px}.desk div{margin-top:4px;color:var(--muted);font-weight:500;font-size:11px}
 .desk .tag{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
-.desk.taken,.desk.past{opacity:.4;cursor:default}.desk.mine{box-shadow:inset 0 0 0 1px var(--cyan)}
+.desk.taken{background:rgba(255,107,122,.12);border-color:rgba(255,107,122,.38);cursor:default}.desk.taken div{color:var(--danger)}.desk.past{opacity:.4;cursor:default}.desk.mine{box-shadow:inset 0 0 0 1px var(--cyan)}
 .desk.v-corp{border-left-color:#3a8cff}.desk.v-corp .tag{color:#3a8cff}
 .desk.v-servicedesk{border-left-color:#2ecf6a}.desk.v-servicedesk .tag{color:#2ecf6a}
 .desk.v-ti{border-left-color:#ff9a4a}.desk.v-ti .tag{color:#ff9a4a}
@@ -44,6 +44,9 @@ input{width:100%;border-radius:16px;border:1px solid var(--line);background:rgba
 .vchip.v-corp .swatch{background:#3a8cff}.vchip.v-servicedesk .swatch{background:#2ecf6a}.vchip.v-ti .swatch{background:#ff9a4a}
 .mine-tag{display:inline-block;margin-left:6px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700}
 .mine-tag.v-corp{color:#3a8cff}.mine-tag.v-servicedesk{color:#2ecf6a}.mine-tag.v-ti{color:#ff9a4a}
+.occ-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 4px;color:var(--muted);font-size:12px;font-weight:600}
+.occ-legend i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:6px;vertical-align:1px}
+.occ-legend .lg-open i{background:var(--good)}.occ-legend .lg-mine i{background:var(--cyan)}.occ-legend .lg-taken i{background:var(--danger)}
 .msg{margin-top:12px;color:var(--danger);min-height:1.2em}.ok{color:var(--good)}.hidden{display:none}
 footer{margin-top:22px;color:var(--muted);font-size:12px}
 .book-layout{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
@@ -77,7 +80,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px}
 <section class="panel" id="screenWho">
 <h2>Book a desk</h2>
 <p class="lead">Use your HADID. Your name comes off the pilot list.</p>
-<div class="how"><div><b>1.</b> Type your HADID, then tap Continue.</div><div><b>2.</b> You can only book up to 7 days ahead. Flip weeks with the arrows.</div><div><b>3.</b> Pick a level, find the workstation name from the floor plan, tap a free desk. One per day.</div></div>
+<div class="how"><div><b>1.</b> Type your HADID, then tap Continue.</div><div><b>2.</b> You can only book up to 7 days ahead. Flip weeks with the arrows.</div><div><b>3.</b> Pick a level. Taken desks show who booked them. One per day.</div></div>
 <label>HADID</label><input id="hadid" placeholder="e.g. aandre03" autocapitalize="none" autocomplete="username" spellcheck="false" inputmode="text"/>
 <button class="btn" id="whoBtn">Continue</button>
 <div class="msg" id="whoMsg"></div>
@@ -97,9 +100,11 @@ footer{margin-top:22px;color:var(--muted);font-size:12px}
       <button class="week-arrow" id="nextWeek" type="button">›</button>
     </div>
     <p class="hint" id="dayHint"></p>
+    <p class="hint" id="occHint">Live shared board</p>
     <div class="days" id="days"></div>
     <div class="days" id="floors"></div>
     <div class="days" id="villages"></div>
+    <div class="occ-legend"><span class="lg-open"><i></i>Open</span><span class="lg-mine"><i></i>Yours</span><span class="lg-taken"><i></i>Taken — shows their name</span></div>
     <label>Find a workstation</label><input id="deskQ" placeholder="e.g. WS7.42 or T&I"/>
     <div class="grid" id="grid"></div>
     <button class="btn ghost" id="backWho">Back</button>
@@ -262,8 +267,8 @@ function rosterName(id){
 const state={
   hadid:(localStorage.getItem("bragg_hadid")||"").toLowerCase(),
   name:localStorage.getItem("bragg_name")||"",
-  date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),
-  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null
+  date:START,week:START,level:Number(localStorage.getItem("bragg_level")||7),
+  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false
 };
 try{
   const saved=JSON.parse(localStorage.getItem("bragg_bookings")||"[]");
@@ -384,6 +389,11 @@ function paint(){
   const floor=floorOf(state.level);
   const vf=L7_VILLAGES.find(v=>v.id===state.village);
   $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks"+(vf?" · "+vf.tag:"");
+  if($("occHint")){
+    const n=state.cache.filter(b=>b.date===state.date&&b.level===state.level).length;
+    $("occHint").textContent=state.live?("Live shared board · "+n+" taken on Level "+state.level):"If the board is not live, you will only see desks booked on this device.";
+    $("occHint").style.color=state.live?"var(--good)":"";
+  }
   if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or T&I":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
   const far=state.date>addDays(state.today,ADVANCE);
@@ -395,7 +405,7 @@ function paint(){
     const mine=row&&(row.mine||row.hadid===state.hadid);
     const cls=(closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=row?(mine?"Yours":(row.name||"Booked")):(closed?"Closed":"Open");
+    const sub=row?(mine?"Yours":("Taken · "+(row.name||"Booked"))):(closed?"Closed":"Open");
     return '<button class="desk '+cls+'" data-desk="'+n+'" '+(closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
@@ -405,12 +415,15 @@ function paint(){
 async function refresh(){
   const data=await api("GET","/api/bookings?hadid="+encodeURIComponent(state.hadid));
   if(data.ok){
+    state.live=true;
     state.cache=(data.bookings||[]).map(b=>({
       id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||state.hadid)),
       date:b.date,level:Number(b.level),desk:Number(b.desk),
       hadid:b.mine?state.hadid:(b.hadid||""),name:b.name||"Booked",mine:!!b.mine
     }));
     persistCache();
+  }else{
+    state.live=false;
   }
   if(data.today) state.today=data.today;
 }
@@ -443,4 +456,8 @@ if(state.hadid && rosterName(state.hadid)){
 }else{
   paint();
 }
+setInterval(function(){ if(state.hadid && rosterName(state.hadid)) refresh().then(paint); }, 15000);
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="visible" && state.hadid && rosterName(state.hadid)) refresh().then(paint);
+});
 </script></body></html>
