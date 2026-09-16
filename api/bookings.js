@@ -1,6 +1,7 @@
 const ADMIN_PIN = "2109";
 const START = "2026-09-21";
 const END = "2026-12-18";
+const ADVANCE_DAYS = 7;
 const FLOORS = [
   { level: 5, desks: 32, note: "Temporary overflow" },
   { level: 6, desks: 20, note: "No FF&E sheet yet" },
@@ -160,6 +161,14 @@ function db() {
 function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Adelaide" });
 }
+function addDays(iso, n) {
+  const parts = String(iso).split("-").map(Number);
+  return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + n)).toISOString().slice(0, 10);
+}
+function bookHorizon(day) {
+  const limit = addDays(day || today(), ADVANCE_DAYS);
+  return limit < END ? limit : END;
+}
 function header(req, name) {
   const h = req.headers || {};
   if (typeof h.get === "function") return String(h.get(name) || "");
@@ -248,7 +257,7 @@ module.exports = async function handler(req, res) {
     const url = parseUrl(req);
     const who = auth(req);
     if (req.method === "GET" && url.searchParams.get("meta") === "1") {
-      return send(res, 200, { ok: true, start: START, end: END, floors: FLOORS, today: today(), rosterCount: Object.keys(ROSTER).length });
+      return send(res, 200, { ok: true, start: START, end: END, floors: FLOORS, today: today(), horizon: bookHorizon(), advanceDays: ADVANCE_DAYS, rosterCount: Object.keys(ROSTER).length });
     }
     if (req.method === "GET" && url.searchParams.get("who") === "1") {
       const hid = hadidOf(url.searchParams.get("hadid"));
@@ -279,7 +288,9 @@ module.exports = async function handler(req, res) {
       const desk = Number(body.desk);
       const floor = floorOf(level);
       const dow = new Date(date + "T00:00:00Z").getUTCDay();
-      if (!(date >= START) || date > END || !(date >= today()) || dow === 0 || dow === 6) return send(res, 400, { ok: false, error: "That day is not bookable." });
+      const day = today();
+      if (date > bookHorizon(day)) return send(res, 400, { ok: false, error: "You can only book up to 7 days ahead." });
+      if (!(date >= START) || date > END || date < day || dow === 0 || dow === 6) return send(res, 400, { ok: false, error: "That day is not bookable." });
       if (!floor || !(desk >= 1) || desk > floor.desks) return send(res, 400, { ok: false, error: "That desk does not exist." });
       const rows = await load();
       const mine = rows.find(function (r) { return r.hadid === hid && r.date === date; });
