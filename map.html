@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Bragg · Floor plans</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Syne:wght@800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#05070c;--cyan:#3ee0c8;--text:#eef6f8;--muted:#8aa0b3;--line:rgba(90,220,200,.18);--panel:rgba(10,20,34,.72);--danger:#ff6b7a;--good:#5dffb2}
+    *{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(900px 500px at 80% -10%,rgba(62,224,200,.12),transparent 55%),#05070c;color:var(--text);font-family:Outfit,system-ui,sans-serif}
+    .wrap{width:min(1180px,calc(100% - 24px));margin:0 auto;padding:22px 0 80px}
+    .brand{font-family:Syne,sans-serif;font-size:clamp(40px,8vw,72px);line-height:.9;font-weight:800}.brand span{color:var(--cyan)}
+    .sub{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-size:14px;margin:8px 0 0}
+    header{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
+    .nav a,.chip{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:8px 12px;border-radius:999px;text-decoration:none;font:600 13px Outfit,sans-serif}
+    .nav a.on,.chip.on{border-color:var(--cyan);color:var(--cyan)}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}
+    .panel{border:1px solid var(--line);background:var(--panel);border-radius:28px;padding:22px}
+    h2{font-family:Syne,sans-serif;margin:0 0 8px}
+    .lead,.hint{color:var(--muted)}
+    .toggles{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+    .layout{display:grid;grid-template-columns:1.7fr .9fr;gap:18px}
+    .map-viewport{position:relative;overflow:hidden;touch-action:none;border-radius:22px;border:1px solid var(--line);background:#071018;min-height:420px;height:min(72vh,720px);cursor:grab}
+    .map-viewport.is-tilt{perspective:1400px}
+    .map-world{width:100%;height:100%;display:grid;place-items:center;transform-origin:0 0}
+    .map-plate{position:relative;width:min(calc(100% - 24px),920px);aspect-ratio:514/464;transform-origin:50% 55%;transition:transform .45s}
+    .map-plate.is-tilt{transform:rotateX(52deg)}
+    .map-plate img{width:100%;height:100%;display:block;object-fit:contain;filter:brightness(.78) contrast(1.12) saturate(.92);user-select:none;-webkit-user-drag:none}
+    .map-plate.is-ffe{aspect-ratio:3/2;width:min(calc(100% - 24px),980px)}
+    .map-plate.is-alloc{aspect-ratio:1600/1200;width:min(calc(100% - 24px),980px)}
+    .map-plate.is-ffe img,.map-plate.is-alloc img{filter:brightness(.92) contrast(1.08)}
+    .map-plate svg{position:absolute;inset:0;width:100%;height:100%}
+    .desk-tile{fill:rgba(238,246,248,.78);stroke:rgba(5,7,12,.55);stroke-width:.6;cursor:pointer}
+    .desk-tile.v-corp{fill:#3a8cff}
+    .desk-tile.v-servicedesk{fill:#2ecf6a}
+    .desk-tile.v-ti{fill:#ff9a4a}
+    .desk-tile:hover{fill:#eef6f8;stroke:#05070c}
+    .zone{cursor:pointer}
+    .hud{position:absolute;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;z-index:2}
+    .side{display:grid;gap:12px;align-content:start}
+    .card{border:1px solid var(--line);border-radius:18px;padding:14px 16px;background:rgba(4,8,16,.45)}
+    .card h3{margin:0 0 6px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+    .legend{display:grid;gap:4px}
+    .legend button{text-align:left;background:transparent;border:0;color:var(--text);cursor:pointer;font:500 14px Outfit,sans-serif;padding:8px 4px;display:flex;gap:8px;align-items:flex-start}
+    .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-top:4px;flex:0 0 10px}
+    .btn{display:block;text-align:center;text-decoration:none;border-radius:16px;padding:14px;font:700 14px Outfit,sans-serif;background:linear-gradient(180deg,#7cf0de,var(--cyan));color:#05231f}
+    #tip{position:absolute;z-index:5;max-width:240px;border:1px solid var(--line);background:rgba(7,16,24,.92);border-radius:12px;padding:8px 12px;font-size:13px;pointer-events:none}
+    #tip b{display:block} #tip div{color:var(--muted)}
+    footer{margin-top:22px;color:var(--muted);font-size:12px;line-height:1.5}
+    @media(max-width:900px){.layout{grid-template-columns:1fr} header{display:block}.nav{margin-top:12px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><div class="brand">Bragg<span>.</span></div><div class="sub">Floor plans · workstation names · wayfinding</div></div>
+    <nav class="nav"><a href="/">Book a desk</a><a class="on" href="/map">This map</a></nav>
+  </header>
+  <section class="panel">
+    <h2>Find your desk</h2>
+    <p class="lead">Official FF&E plates for Levels 5, 7 and 8. Names on the drawing are the names you book. This page does not take a chair.</p>
+    <div class="toggles" id="sheetTabs">
+      <button class="chip on" data-sheet="villages" type="button">L7 villages</button>
+      <button class="chip" data-sheet="5" type="button">Level 5</button>
+      <button class="chip" data-sheet="7" type="button">Level 7</button>
+      <button class="chip" data-sheet="8" type="button">Level 8</button>
+    </div>
+    <div class="toggles" id="villageToggles">
+      <button class="chip on" id="desksBtn" type="button">Desks on</button>
+      <button class="chip" id="tiltBtn" type="button">Tilt</button>
+      <button class="chip" id="resetBtn" type="button">Reset</button>
+    </div>
+    <div class="layout">
+      <div class="map-viewport" id="viewport">
+        <div class="hud"><span class="chip">Level <b>7</b></span><span class="chip" id="countPill">workpoints</span></div>
+        <div class="map-world" id="world">
+          <div class="map-plate is-alloc" id="plate">
+            <img src="https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/d94a3eab35e6b7d3e4da15e42aab01159cb8c38e/plan-l7-alloc.jpg" alt="Level 7 seating allocation" draggable="false"/>
+            <svg viewBox="0 0 1600 1200" id="overlay"></svg>
+          </div>
+        </div>
+        <div id="tip" hidden></div>
+      </div>
+      <aside class="side">
+        <div class="card" id="info"><h3>Tap a village</h3><p>Blue is Corporate (WS7.123–150). Green is Service Desk (WS7.77–122). Orange is T&I — ASD, DAP and Infrastructure (WS7.01–76). Core is shared.</p></div>
+        <div class="card" id="keyCard"><h3>Key</h3><div class="legend" id="legend"></div></div>
+        <a class="btn" href="/">Book a desk</a>
+      </aside>
+    </div>
+  </section>
+  <footer>This map does not book a chair. Workstation names on the FF&E plates match the booking page. Level 6 has no FF&E sheet yet.</footer>
+</div>
+<script>
+const SHEETS={
+  villages:{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/d94a3eab35e6b7d3e4da15e42aab01159cb8c38e/plan-l7-alloc.jpg",caption:"Seating allocation · 3 villages",level:"7"},
+  "5":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l5.jpg",caption:"September temp overflow · desks 01–32",level:"5"},
+  "7":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l7-ffe.jpg",caption:"FF&E plan · WS7.01–WS7.150",level:"7"},
+  "8":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l8.jpg",caption:"FF&E plan · WS8.01–WS8.152",level:"8"}
+};
+document.querySelectorAll("#sheetTabs [data-sheet]").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll("#sheetTabs [data-sheet]").forEach(b=>b.classList.toggle("on",b===btn));
+    const id=btn.dataset.sheet, s=SHEETS[id];
+    const img=document.querySelector("#plate img");
+    const svg=document.getElementById("overlay");
+    const plate=document.getElementById("plate");
+    const info=document.getElementById("info");
+    const count=document.getElementById("countPill");
+    const hud=document.querySelector(".hud .chip b");
+    img.src=s.src; img.alt="Level "+s.level+" plan";
+    if(hud) hud.textContent=s.level;
+    if(count) count.textContent=s.caption;
+    if(svg) svg.style.display=id==="villages"?"":"none";
+    if(plate){plate.classList.toggle("is-alloc", id==="villages"); plate.classList.toggle("is-ffe", id!=="villages");}
+    document.getElementById("villageToggles").style.display=id==="villages"?"":"none";
+    const key=document.getElementById("keyCard");
+    if(key) key.style.display=id==="villages"?"":"none";
+    if(info){info.innerHTML=id==="villages"?"<h3>Tap a village</h3><p>Blue is Corporate (WS7.123–150). Green is Service Desk (WS7.77–122). Orange is T&I — ASD, DAP and Infrastructure (WS7.01–76). Core is shared.</p>":"<h3>Level "+s.level+"</h3><p>"+s.caption+". Pinch or scroll to zoom. Booking uses these names.</p>";}
+  };
+});
+</script>
+<script src="/map.js?v=loginfix"></script>
+</body>
+</html>
