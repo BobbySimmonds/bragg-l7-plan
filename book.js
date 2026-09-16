@@ -1,4 +1,4 @@
-const START="2026-09-21",END="2026-12-18";
+const START="2026-09-21",END="2026-12-18",ADVANCE=7;
 const FLOORS=[
   {level:5,desks:32,note:"Temporary overflow"},
   {level:6,desks:20,note:"No FF&E sheet yet"},
@@ -168,8 +168,8 @@ const mondayOf=iso=>{const d=weekday(iso);return addDays(iso,d===0?-6:1-d)};
 const firstWeek=mondayOf(START),lastWeek=mondayOf(END);
 function weekDays(mon){return [0,1,2,3,4].map(i=>addDays(mon,i)).filter(d=>d>=START&&d<=END)}
 function weekLabel(mon){const days=weekDays(mon);if(!days.length)return "";const a=days[0],b=days[days.length-1];const left=new Date(a+"T00:00:00Z").toLocaleDateString("en-AU",{day:"numeric",month:a.slice(0,7)===b.slice(0,7)?undefined:"short",timeZone:"UTC"});const right=new Date(b+"T00:00:00Z").toLocaleDateString("en-AU",{day:"numeric",month:"short",timeZone:"UTC"});return left+" – "+right}
-function firstOpen(mon){return weekDays(mon).find(d=>d>=state.today)||weekDays(mon)[0]||mon}
-function weekHasOpen(mon){return weekDays(mon).some(d=>d>=state.today)}
+function firstOpen(mon){const h=addDays(state.today,ADVANCE);return weekDays(mon).find(d=>d>=state.today&&d<=h)||weekDays(mon).find(d=>d>=state.today)||weekDays(mon)[0]||mon}
+function weekHasOpen(mon){const h=addDays(state.today,ADVANCE);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function persistCache(){
   localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",name:b.name||""}))));
@@ -204,7 +204,7 @@ function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").clas
 function paintMine(){
   const rows=mineRows();
   $("mineHint").textContent=rows.length?rows.length+" booked · tap a row to jump there":"Nothing booked yet. Your days will sit here.";
-  if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick Mon–Fri in this week. Each day can hold one desk.</div>';return;}
+  if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick a day in the next 7 days. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
     const locked=r.date<=state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
     const tag=v?'<span class="mine-tag v-'+v.id+'">'+v.tag+'</span>':"";
@@ -235,6 +235,8 @@ function paintVillages(){
 }
 function nid(){return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8)}
 async function bookDesk(n){
+  if(state.date<state.today) return;
+  if(state.date>addDays(state.today,ADVANCE)){$("deskMsg").textContent="You can only book up to 7 days ahead.";$("deskMsg").className="msg";return;}
   const v=villageOf(state.level,n);
   if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;
   const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});
@@ -254,12 +256,13 @@ async function cancelRow(row){
 function paint(){
   $("weekLabel").textContent=weekLabel(state.week);
   $("prevWeek").disabled=!(weekHasOpen(addDays(state.week,-7))&&addDays(state.week,-7)>=firstWeek);
-  $("nextWeek").disabled=addDays(state.week,7)>lastWeek;
+  $("nextWeek").disabled=!weekHasOpen(addDays(state.week,7));
   const mine=mineRows();
+  const h=addDays(state.today,ADVANCE);
   $("days").innerHTML=weekDays(state.week).map(d=>{
-    const booked=mine.find(b=>b.date===d),past=d<state.today;
-    const sub=booked?deskShort(booked.level,booked.desk):(past?"Past":"Open");
-    return '<button class="day '+(d===state.date?"on":"")+(past?" past":"")+'" data-day="'+d+'" '+(past?"disabled":"")+'><b>'+Number(d.slice(8))+'</b><div>'+fmt(d).slice(0,3)+'</div><small>'+sub+'</small></button>';
+    const booked=mine.find(b=>b.date===d),past=d<state.today,far=d>h,locked=past||far;
+    const sub=booked?deskShort(booked.level,booked.desk):(past?"Past":far?"Later":"Open");
+    return '<button class="day '+(d===state.date?"on":"")+(locked?" past":"")+'" data-day="'+d+'" '+(locked?"disabled":"")+'><b>'+Number(d.slice(8))+'</b><div>'+fmt(d).slice(0,3)+'</div><small>'+sub+'</small></button>';
   }).join("");
   $("days").querySelectorAll(".day:not([disabled])").forEach(el=>el.onclick=()=>{state.date=el.dataset.day;paint();});
   $("floors").innerHTML=FLOORS.map(f=>'<button class="day '+(f.level===state.level?"on":"")+'" data-level="'+f.level+'"><div>Level</div><b>'+f.level+'</b><small>'+f.desks+' desks</small></button>').join("");
@@ -270,15 +273,17 @@ function paint(){
   $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks"+(vf?" · "+vf.tag:"");
   if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or T&I":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
+  const far=state.date>addDays(state.today,ADVANCE);
+  const closed=past||far;
   const by=new Map(state.cache.filter(b=>b.date===state.date&&b.level===state.level).map(b=>[b.desk,b]));
   const list=deskList();
   $("grid").innerHTML=list.map(n=>{
     const row=by.get(n),v=villageOf(state.level,n);
     const mine=row&&(row.mine||row.hadid===state.hadid);
-    const cls=(past?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
+    const cls=(closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=row?(mine?"Yours":(row.name||"Booked")):(past?"Closed":"Open");
-    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(past||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
+    const sub=row?(mine?"Yours":(row.name||"Booked")):(closed?"Closed":"Open");
+    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
   $("grid").querySelectorAll(".desk.mine").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id)return;await cancelRow(row);});
@@ -314,7 +319,7 @@ $("whoBtn").onclick=()=>signIn($("hadid").value);
 $("hadid").addEventListener("keydown",e=>{if(e.key==="Enter") signIn($("hadid").value);});
 $("backWho").onclick=$("changeWho").onclick=()=>leaveBook();
 $("prevWeek").onclick=()=>{state.week=clampWeek(addDays(state.week,-7));state.date=firstOpen(state.week);paint();};
-$("nextWeek").onclick=()=>{state.week=clampWeek(addDays(state.week,7));state.date=firstOpen(state.week);paint();};
+$("nextWeek").onclick=()=>{const next=addDays(state.week,7);if(!weekHasOpen(next))return;state.week=clampWeek(next);state.date=firstOpen(state.week);paint();};
 if($("deskQ")) $("deskQ").oninput=()=>{state.q=$("deskQ").value;paint();};
 $("hadid").value=state.hadid;
 bootWeek();
