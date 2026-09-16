@@ -13,7 +13,7 @@
     .sub{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-size:14px;margin:8px 0 0}
     header{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
     .nav a,.chip{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:8px 12px;border-radius:999px;text-decoration:none;font:600 13px Outfit,sans-serif}
-    .nav a.on,.chip.on{border-color:var(--cyan);color:var(--cyan)}
+    .chip.off{opacity:.38;filter:grayscale(1);cursor:not-allowed}
     .nav{display:flex;gap:10px;flex-wrap:wrap}
     .panel{border:1px solid var(--line);background:var(--panel);border-radius:28px;padding:22px}
     h2{font-family:Syne,sans-serif;margin:0 0 8px}
@@ -33,7 +33,9 @@
     .desk-tile{fill:rgba(238,246,248,.78);stroke:rgba(5,7,12,.55);stroke-width:.6;cursor:pointer}
     .desk-tile.v-corp{fill:#3a8cff}
     .desk-tile.v-servicedesk{fill:#2ecf6a}
-    .desk-tile.v-ti{fill:#ff9a4a}
+    .desk-tile.v-ti,.desk-tile.v-asd{fill:#ff9a4a}
+    .desk-tile.v-dap{fill:#c084fc}
+    .desk-tile.v-infra{fill:#f5c542}
     .desk-tile:hover{fill:#eef6f8;stroke:#05070c}
     .zone{cursor:pointer}
     .hud{position:absolute;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;z-index:2}
@@ -58,12 +60,12 @@
   </header>
   <section class="panel">
     <h2>Find your desk</h2>
-    <p class="lead">Official FF&E plates for Levels 5, 7 and 8. Names on the drawing are the names you book. This page does not take a chair.</p>
+    <p class="lead">Official plates for Levels 5 and 7. Names on the drawing are the names you book. Level 8 is not in use. This page does not take a chair.</p>
     <div class="toggles" id="sheetTabs">
       <button class="chip on" data-sheet="villages" type="button">L7 villages</button>
       <button class="chip" data-sheet="5" type="button">Level 5</button>
       <button class="chip" data-sheet="7" type="button">Level 7</button>
-      <button class="chip" data-sheet="8" type="button">Level 8</button>
+      <button class="chip off" data-sheet="8" type="button" disabled>Level 8 · not in use</button>
     </div>
     <div class="toggles" id="villageToggles">
       <button class="chip on" id="desksBtn" type="button">Desks on</button>
@@ -82,23 +84,24 @@
         <div id="tip" hidden></div>
       </div>
       <aside class="side">
-        <div class="card" id="info"><h3>Tap a village</h3><p>Blue is Corporate (WS7.123–150). Green is Service Desk (WS7.77–122). Orange is T&I — ASD, DAP and Infrastructure (WS7.01–76). Core is shared.</p></div>
+        <div class="card" id="info"><h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p></div>
         <div class="card" id="keyCard"><h3>Key</h3><div class="legend" id="legend"></div></div>
         <a class="btn" href="/">Book a desk</a>
       </aside>
     </div>
   </section>
-  <footer>This map does not book a chair. Workstation names on the FF&E plates match the booking page. Level 6 has no FF&E sheet yet.</footer>
+  <footer>This map does not book a chair. Workstation names on the FF&E plates match the booking page. Levels 6 and 8 are not in use.</footer>
 </div>
 <script>
 const SHEETS={
-  villages:{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/d94a3eab35e6b7d3e4da15e42aab01159cb8c38e/plan-l7-alloc.jpg",caption:"Seating allocation · 3 villages",level:"7"},
+  villages:{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/d94a3eab35e6b7d3e4da15e42aab01159cb8c38e/plan-l7-alloc.jpg",caption:"Seating allocation · 5 villages",level:"7"},
   "5":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l5.jpg",caption:"September temp overflow · desks 01–32",level:"5"},
   "7":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l7-ffe.jpg",caption:"FF&E plan · WS7.01–WS7.150",level:"7"},
-  "8":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l8.jpg",caption:"FF&E plan · WS8.01–WS8.152",level:"8"}
+  "8":{src:"https://raw.githubusercontent.com/BobbySimmonds/bragg-l7-plan/a05ecfa28720004fea113d7221eb7da710f543e6/plan-l8.jpg",caption:"Not in use",level:"8"}
 };
 document.querySelectorAll("#sheetTabs [data-sheet]").forEach(btn=>{
   btn.onclick=()=>{
+    if(btn.disabled) return;
     document.querySelectorAll("#sheetTabs [data-sheet]").forEach(b=>b.classList.toggle("on",b===btn));
     const id=btn.dataset.sheet, s=SHEETS[id];
     const img=document.querySelector("#plate img");
@@ -115,10 +118,10 @@ document.querySelectorAll("#sheetTabs [data-sheet]").forEach(btn=>{
     document.getElementById("villageToggles").style.display=id==="villages"?"":"none";
     const key=document.getElementById("keyCard");
     if(key) key.style.display=id==="villages"?"":"none";
-    if(info){info.innerHTML=id==="villages"?"<h3>Tap a village</h3><p>Blue is Corporate (WS7.123–150). Green is Service Desk (WS7.77–122). Orange is T&I — ASD, DAP and Infrastructure (WS7.01–76). Core is shared.</p>":"<h3>Level "+s.level+"</h3><p>"+s.caption+". Pinch or scroll to zoom. Booking uses these names.</p>";}
+    if(info){info.innerHTML=id==="villages"?"<h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p>":"<h3>Level "+s.level+"</h3><p>"+s.caption+". Pinch or scroll to zoom. Booking uses these names.</p>";}
   };
 });
 </script>
-<script src="/map.js?v=loginfix"></script>
+<script src="/map.js?v=villages5"></script>
 </body>
 </html>

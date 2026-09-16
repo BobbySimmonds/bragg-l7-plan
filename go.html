@@ -36,14 +36,16 @@ input{width:100%;border-radius:16px;border:1px solid var(--line);background:rgba
 .desk.taken{background:rgba(255,107,122,.12);border-color:rgba(255,107,122,.38);cursor:default}.desk.taken div{color:var(--danger)}.desk.past{opacity:.4;cursor:default}.desk.mine{box-shadow:inset 0 0 0 1px var(--cyan)}
 .desk.v-corp{border-left-color:#3a8cff}.desk.v-corp .tag{color:#3a8cff}
 .desk.v-servicedesk{border-left-color:#2ecf6a}.desk.v-servicedesk .tag{color:#2ecf6a}
-.desk.v-ti{border-left-color:#ff9a4a}.desk.v-ti .tag{color:#ff9a4a}
+.desk.v-ti,.desk.v-asd{border-left-color:#ff9a4a}.desk.v-ti .tag,.desk.v-asd .tag{color:#ff9a4a}
+.desk.v-dap{border-left-color:#c084fc}.desk.v-dap .tag{color:#c084fc}
+.desk.v-infra{border-left-color:#f5c542}.desk.v-infra .tag{color:#f5c542}
 .vchip{min-width:118px;border-radius:16px;border:1px solid var(--line);background:rgba(4,8,16,.5);color:var(--text);padding:10px 12px;cursor:pointer;text-align:left;font:600 12px Outfit,sans-serif;white-space:nowrap}
 .vchip.on{border-color:var(--cyan)}
 .vchip small{display:block;margin-top:3px;color:var(--muted);font-weight:500;font-size:11px}
 .vchip .swatch{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:6px;vertical-align:1px}
-.vchip.v-corp .swatch{background:#3a8cff}.vchip.v-servicedesk .swatch{background:#2ecf6a}.vchip.v-ti .swatch{background:#ff9a4a}
+.vchip.v-corp .swatch{background:#3a8cff}.vchip.v-servicedesk .swatch{background:#2ecf6a}.vchip.v-ti .swatch,.vchip.v-asd .swatch{background:#ff9a4a}.vchip.v-dap .swatch{background:#c084fc}.vchip.v-infra .swatch{background:#f5c542}
 .mine-tag{display:inline-block;margin-left:6px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700}
-.mine-tag.v-corp{color:#3a8cff}.mine-tag.v-servicedesk{color:#2ecf6a}.mine-tag.v-ti{color:#ff9a4a}
+.mine-tag.v-corp{color:#3a8cff}.mine-tag.v-servicedesk{color:#2ecf6a}.mine-tag.v-ti,.mine-tag.v-asd{color:#ff9a4a}.mine-tag.v-dap{color:#c084fc}.mine-tag.v-infra{color:#f5c542}
 .occ-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 4px;color:var(--muted);font-size:12px;font-weight:600}
 .occ-legend i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:6px;vertical-align:1px}
 .occ-legend .lg-open i{background:var(--good)}.occ-legend .lg-mine i{background:var(--cyan)}.occ-legend .lg-taken i{background:var(--danger)}
@@ -105,7 +107,7 @@ footer{margin-top:22px;color:var(--muted);font-size:12px}
     <div class="days" id="floors"></div>
     <div class="days" id="villages"></div>
     <div class="occ-legend"><span class="lg-open"><i></i>Open</span><span class="lg-mine"><i></i>Yours</span><span class="lg-taken"><i></i>Taken — shows their name</span></div>
-    <label>Find a workstation</label><input id="deskQ" placeholder="e.g. WS7.42 or T&I"/>
+    <label>Find a workstation</label><input id="deskQ" placeholder="e.g. WS7.42 or ASD"/>
     <div class="grid" id="grid"></div>
     <button class="btn ghost" id="backWho">Back</button>
     <div class="msg" id="deskMsg"></div>
@@ -119,14 +121,16 @@ footer{margin-top:22px;color:var(--muted);font-size:12px}
 const START="2026-09-21",END="2026-12-18",ADVANCE=7;
 const FLOORS=[
   {level:5,desks:32,note:"Temporary overflow"},
-  {level:6,desks:20,note:"No FF&E sheet yet"},
+  {level:6,desks:20,note:"Not in use",enabled:false},
   {level:7,desks:150,note:"FF&E workstations"},
-  {level:8,desks:152,note:"FF&E workstations"}
+  {level:8,desks:152,note:"Not in use",enabled:false}
 ];
 const L7_VILLAGES=[
   {id:"corp",tag:"Corporate",label:"Corporate Services, Security & Service Management",count:28},
   {id:"servicedesk",tag:"Service Desk",label:"Service Desk",count:46},
-  {id:"ti",tag:"T&I",label:"T&I (ASD + DAP + Infrastructure)",count:76}
+  {id:"asd",tag:"ASD",label:"T&I · ASD · WS7.01–22",count:22},
+  {id:"dap",tag:"DAP",label:"T&I · DAP · WS7.23–28",count:6},
+  {id:"infra",tag:"Infra",label:"T&I · Infrastructure · WS7.29–76",count:48}
 ];
 const ROSTER={
   acousi03: "Alison Cousins",
@@ -267,7 +271,7 @@ function rosterName(id){
 const state={
   hadid:(localStorage.getItem("bragg_hadid")||"").toLowerCase(),
   name:localStorage.getItem("bragg_name")||"",
-  date:START,week:START,level:Number(localStorage.getItem("bragg_level")||7),
+  date:START,week:START,level:(function(){const n=Number(localStorage.getItem("bragg_level")||7);return n===6||n===8?7:n;})(),
   cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false
 };
 try{
@@ -298,7 +302,9 @@ function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(lev
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
   if(Number(level)!==7) return null;
-  if(desk>=1&&desk<=76) return L7_VILLAGES.find(v=>v.id==="ti");
+  if(desk>=1&&desk<=22) return L7_VILLAGES.find(v=>v.id==="asd");
+  if(desk>=23&&desk<=28) return L7_VILLAGES.find(v=>v.id==="dap");
+  if(desk>=29&&desk<=76) return L7_VILLAGES.find(v=>v.id==="infra");
   if(desk>=77&&desk<=122) return L7_VILLAGES.find(v=>v.id==="servicedesk");
   if(desk>=123&&desk<=150) return L7_VILLAGES.find(v=>v.id==="corp");
   return null;
@@ -354,6 +360,7 @@ function paintVillages(){
 function nid(){return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8)}
 async function bookDesk(n){
   if(state.date<state.today) return;
+  const fl=floorOf(state.level);if(fl&&fl.enabled===false){$("deskMsg").textContent="That level is not in use.";$("deskMsg").className="msg";return;}
   if(state.date>addDays(state.today,ADVANCE)){$("deskMsg").textContent="You can only book up to 7 days ahead.";$("deskMsg").className="msg";return;}
   const v=villageOf(state.level,n);
   if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;
@@ -383,8 +390,8 @@ function paint(){
     return '<button class="day '+(d===state.date?"on":"")+(locked?" past":"")+'" data-day="'+d+'" '+(locked?"disabled":"")+'><b>'+Number(d.slice(8))+'</b><div>'+fmt(d).slice(0,3)+'</div><small>'+sub+'</small></button>';
   }).join("");
   $("days").querySelectorAll(".day:not([disabled])").forEach(el=>el.onclick=()=>{state.date=el.dataset.day;paint();});
-  $("floors").innerHTML=FLOORS.map(f=>'<button class="day '+(f.level===state.level?"on":"")+'" data-level="'+f.level+'"><div>Level</div><b>'+f.level+'</b><small>'+f.desks+' desks</small></button>').join("");
-  $("floors").querySelectorAll("[data-level]").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);state.q="";state.village=null;if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
+  $("floors").innerHTML=FLOORS.map(f=>{const off=f.enabled===false;return '<button class="day '+(f.level===state.level?"on":"")+(off?" past":"")+'" data-level="'+f.level+'" '+(off?"disabled":"")+'><div>Level</div><b>'+f.level+'</b><small>'+(off?"Not in use":f.desks+" desks")+'</small></button>';}).join("");
+  $("floors").querySelectorAll("[data-level]:not([disabled])").forEach(el=>el.onclick=()=>{state.level=Number(el.dataset.level);state.q="";state.village=null;if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
   paintVillages();
   const floor=floorOf(state.level);
   const vf=L7_VILLAGES.find(v=>v.id===state.village);
@@ -394,7 +401,7 @@ function paint(){
     $("occHint").textContent=state.live?("Live shared board · "+n+" taken on Level "+state.level):"If the board is not live, you will only see desks booked on this device.";
     $("occHint").style.color=state.live?"var(--good)":"";
   }
-  if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or T&I":state.level===8?"e.g. WS8.18":"e.g. 12";
+  if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or ASD":"e.g. 12";
   const past=state.date<state.today;
   const far=state.date>addDays(state.today,ADVANCE);
   const closed=past||far;
