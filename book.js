@@ -3,10 +3,7 @@ const FLOORS=[{level:5,desks:32,note:"Temporary overflow"},{level:6,desks:20,not
 const L7_VILLAGES=[
   {id:"corp",tag:"Corporate",label:"Corporate Services, Security & Service Management",count:28},
   {id:"servicedesk",tag:"Service Desk",label:"Service Desk",count:46},
-  {id:"openwp",tag:"Open WP",label:"7.21 Open workpoints · inside Service Desk",count:8,parent:"servicedesk"},
-  {id:"asd",tag:"ASD",label:"ASD",count:28},
-  {id:"dap",tag:"DAP",label:"DAP",count:16},
-  {id:"infra",tag:"Infra",label:"Infrastructure",count:32}
+  {id:"ti",tag:"T&I",label:"T&I (ASD + DAP + Infrastructure)",count:76}
 ];
 const state={hadid:localStorage.getItem("bragg_hadid")||"",name:localStorage.getItem("bragg_name")||"",date:START,week:START,level:Number(localStorage.getItem("bragg_level")||5),cache:[],today:"2026-09-14",q:"",village:null};
 const $=id=>document.getElementById(id);
@@ -26,15 +23,12 @@ function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(lev
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
   if(Number(level)!==7) return null;
-  if(desk>=1&&desk<=28) return L7_VILLAGES.find(v=>v.id==="asd");
-  if(desk>=29&&desk<=44) return L7_VILLAGES.find(v=>v.id==="dap");
-  if(desk>=45&&desk<=76) return L7_VILLAGES.find(v=>v.id==="infra");
-  if(desk>=111&&desk<=118) return L7_VILLAGES.find(v=>v.id==="openwp");
+  if(desk>=1&&desk<=76) return L7_VILLAGES.find(v=>v.id==="ti");
   if(desk>=77&&desk<=122) return L7_VILLAGES.find(v=>v.id==="servicedesk");
   if(desk>=123&&desk<=150) return L7_VILLAGES.find(v=>v.id==="corp");
   return null;
 }
-function villageOk(v,filter){if(!filter)return true;if(!v)return false;if(v.id===filter)return true;return filter==="servicedesk"&&v.parent==="servicedesk"}
+function villageOk(v,filter){if(!filter)return true;return !!(v&&v.id===filter)}
 async function api(method,path,body){const res=await fetch(path,{method,headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,cache:"no-store"});const json=await res.json().catch(()=>({ok:false,error:"Could not read response."}));json.status=res.status;if(!res.ok&&!json.error)json.error="Something went wrong.";return json;}
 function enterBook(){$("whoChipText").textContent=state.name+" · "+state.hadid;$("whoChip").classList.add("show");$("screenWho").classList.add("hidden");$("screenBook").classList.remove("hidden")}
 function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").classList.remove("hidden")}
@@ -87,7 +81,7 @@ function paint(){
   const floor=floorOf(state.level);
   const vf=L7_VILLAGES.find(v=>v.id===state.village);
   $("dayHint").textContent=fmt(state.date)+" · Level "+state.level+" · "+floor.note+" · "+floor.desks+" desks"+(vf?" · "+vf.tag:"");
-  if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or ASD":state.level===8?"e.g. WS8.18":"e.g. 12";
+  if($("deskQ")) $("deskQ").placeholder=state.level===7?"e.g. WS7.42 or T&I":state.level===8?"e.g. WS8.18":"e.g. 12";
   const past=state.date<state.today;
   const by=new Map(state.cache.filter(b=>b.date===state.date&&b.level===state.level).map(b=>[b.desk,b]));
   const list=deskList();
