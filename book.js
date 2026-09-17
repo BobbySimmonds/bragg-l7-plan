@@ -159,7 +159,7 @@ try{
   if(Array.isArray(saved)) state.cache=saved.map(b=>({
     id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||"")),
     date:b.date,level:Number(b.level),desk:Number(b.desk),
-    hadid:b.hadid||"",name:b.name||"Booked",mine:!!(b.hadid&&b.hadid===state.hadid)
+    hadid:b.hadid||"",mine:!!(b.hadid&&b.hadid===state.hadid)
   }));
 }catch(e){}
 const $=id=>document.getElementById(id);
@@ -177,7 +177,7 @@ function firstOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).fi
 function weekHasOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function persistCache(){
-  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",name:b.name||""}))));
+  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||""}))));
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
@@ -206,7 +206,7 @@ async function api(method,path,body){
     return {ok:false,error:"offline"};
   }
 }
-function enterBook(){$("whoChipText").textContent=state.name+" · "+state.hadid;$("whoChip").classList.add("show");$("screenWho").classList.add("hidden");$("screenBook").classList.remove("hidden")}
+function enterBook(){$("whoChipText").textContent=state.hadid;$("whoChip").classList.add("show");$("screenWho").classList.add("hidden");$("screenBook").classList.remove("hidden")}
 function leaveBook(){$("screenBook").classList.add("hidden");$("screenWho").classList.remove("hidden")}
 function paintMine(){
   const rows=mineRows();
@@ -252,7 +252,7 @@ async function bookDesk(n){
   if(out.error && out.error!=="offline"){$("deskMsg").textContent=out.error;$("deskMsg").className="msg";return;}
   if(state.cache.some(b=>(b.mine||b.hadid===state.hadid)&&b.date===state.date)){$("deskMsg").textContent="You already have a desk that day.";$("deskMsg").className="msg";return;}
   if(state.cache.some(b=>b.date===state.date&&b.level===state.level&&b.desk===n)){$("deskMsg").textContent="That desk is already taken.";$("deskMsg").className="msg";return;}
-  state.cache.push({id:nid(),date:state.date,level:state.level,desk:n,hadid:state.hadid,name:state.name,mine:true});
+  state.cache.push({id:nid(),date:state.date,level:state.level,desk:n,hadid:state.hadid,mine:true});
   persistCache();paint();$("deskMsg").textContent="You're booked.";$("deskMsg").className="msg ok";
 }
 async function cancelRow(row){
@@ -295,7 +295,7 @@ function paint(){
     const mine=row&&(row.mine||row.hadid===state.hadid);
     const cls=(closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=row?(mine?"Yours":("Taken · "+(row.name||"Booked"))):(closed?"Closed":"Open");
+    const sub=row?(mine?"Yours":("Taken · "+(row.hadid||"Booked"))):(closed?"Closed":"Open");
     return '<button class="desk '+cls+'" data-desk="'+n+'" '+(closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
@@ -309,7 +309,7 @@ async function refresh(){
     state.cache=(data.bookings||[]).map(b=>({
       id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||state.hadid)),
       date:b.date,level:Number(b.level),desk:Number(b.desk),
-      hadid:b.mine?state.hadid:(b.hadid||""),name:b.name||"Booked",mine:!!b.mine
+      hadid:b.hadid||(b.mine?state.hadid:""),mine:!!b.mine
     }));
     persistCache();
   }else{
@@ -320,12 +320,11 @@ async function refresh(){
 function bootWeek(){const open=mondayOf(state.today>START?state.today:START);const w=clampWeek(weekHasOpen(open)?open:addDays(open,7));state.week=w;state.date=firstOpen(w);}
 function signIn(hadid){
   const id=String(hadid||"").trim().toLowerCase();
-  const name=rosterName(id);
   if(!id){$("whoMsg").textContent="Enter your HADID.";return false;}
-  if(!name){$("whoMsg").textContent="That HADID is not on the Bragg pilot list.";return false;}
-  state.hadid=id;state.name=name;
+  if(!rosterName(id)){$("whoMsg").textContent="That HADID is not on the Bragg pilot list.";return false;}
+  state.hadid=id;state.name="";
   localStorage.setItem("bragg_hadid",id);
-  localStorage.setItem("bragg_name",name);
+  localStorage.removeItem("bragg_name");
   $("whoMsg").textContent="";
   enterBook();bootWeek();paint();
   refresh().then(paint);
@@ -340,7 +339,6 @@ if($("deskQ")) $("deskQ").oninput=()=>{state.q=$("deskQ").value;paint();};
 $("hadid").value=state.hadid;
 bootWeek();
 if(state.hadid && rosterName(state.hadid)){
-  state.name=rosterName(state.hadid);
   enterBook();
   refresh().then(paint);
 }else{

@@ -250,8 +250,8 @@ function pub(row, hadid, admin) {
   return {
     id: mine || admin ? row.id : undefined,
     date: row.date, level: row.level, desk: row.desk,
-    name: row.name || "Booked", mine: mine,
-    hadid: admin || mine ? row.hadid : "",
+    hadid: row.hadid || "",
+    mine: mine,
     createdAt: admin || mine ? row.createdAt : undefined,
     locked: !(row.date > today()),
   };
@@ -282,7 +282,7 @@ module.exports = async function handler(req, res) {
       const hid = hadidOf(url.searchParams.get("hadid"));
       const person = rosterOf(hid);
       if (!person) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
-      return send(res, 200, { ok: true, hadid: hid, name: person.name });
+      return send(res, 200, { ok: true, hadid: hid });
     }
     if (req.method === "GET") {
       const rows = await load();
@@ -318,7 +318,6 @@ module.exports = async function handler(req, res) {
           bySlot[key] = {
             id: prev && prev.id ? prev.id : (r.id || nid()),
             date: date, level: level, desk: desk, hadid: hid,
-            name: r.name || (rosterOf(hid) && rosterOf(hid).name) || hid,
             createdAt: (prev && prev.createdAt) || r.createdAt || new Date().toISOString()
           };
         });
@@ -329,7 +328,6 @@ module.exports = async function handler(req, res) {
       const hid = hadidOf(body.hadid);
       const person = rosterOf(hid);
       if (!person) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
-      const name = person.name;
       const date = String(body.date || "");
       const level = Number(body.level);
       const desk = Number(body.desk);
@@ -344,7 +342,7 @@ module.exports = async function handler(req, res) {
       if (mine) return send(res, 409, { ok: false, error: "You already have " + deskName(mine.level, mine.desk) + " on that day.", booking: pub(mine, hid, false) });
       const taken = rows.find(function (r) { return r.date === date && r.level === level && r.desk === desk; });
       if (taken) return send(res, 409, { ok: false, error: "That desk is already taken." });
-      const booking = { id: nid(), date: date, level: level, desk: desk, hadid: hid, name: name, createdAt: new Date().toISOString() };
+      const booking = { id: nid(), date: date, level: level, desk: desk, hadid: hid, createdAt: new Date().toISOString() };
       rows.push(booking);
       await save(rows);
       return send(res, 201, { ok: true, booking: pub(booking, hid, false) });
