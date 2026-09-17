@@ -153,13 +153,18 @@ const BOOTSTRAP = [
   {id:"b_mu4t8ocn_di1oib",date:"2026-09-23",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:38.567Z"},
   {id:"b_mu4t3t4k_i085rt",date:"2026-09-23",level:7,desk:76,hadid:"estamo01",createdAt:"2026-09-17T00:43:51.476Z"},
   {id:"b_mu4t8uet_r6pv5r",date:"2026-09-24",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:46.421Z"},
+  {id:"b_mu4ztlf7_lew1qj",date:"2026-09-24",level:7,desk:76,hadid:"kkirkl01",createdAt:"2026-09-17T03:51:52.243Z"},
   {id:"b_mu4t60z2_2qxl2g",date:"2026-09-25",level:7,desk:33,hadid:"tstapl01",createdAt:"2026-09-17T00:45:34.958Z"},
-  {id:"b_mu4t5q31_2p5vdi",date:"2026-09-25",level:7,desk:76,hadid:"cgeorg10",createdAt:"2026-09-17T00:45:20.845Z"},
+  {id:"b_mu4zu1ai_qxyl91",date:"2026-09-25",level:7,desk:76,hadid:"kkirkl01",createdAt:"2026-09-16T12:00:00.000Z"},
   {id:"b_mu4sz5cl_32wx7v",date:"2026-09-25",level:7,desk:147,hadid:"mboric01",createdAt:"2026-09-17T00:38:13.800Z"}
 ];
+const BOOTSTRAP_TOMBS = ["b_mu4t5q31_2p5vdi", "b_mu4t5alq_4e24sj"];
 const g = globalThis;
 if (!g.__braggStore__) {
   g.__braggStore__ = { bookings: BOOTSTRAP.slice(), tombs: Object.create(null), ready: true };
+}
+function applyBootstrapTombs() {
+  BOOTSTRAP_TOMBS.forEach(function (id) { g.__braggStore__.tombs[id] = 1; });
 }
 function isBookingId(k) {
   return typeof k === "string" && k.indexOf("b_") === 0;
@@ -261,6 +266,7 @@ async function loadRemote() {
 }
 async function load() {
   const store = g.__braggStore__;
+  applyBootstrapTombs();
   const remote = await loadRemote();
   if (remote) {
     store.tombs = Object.assign(Object.create(null), store.tombs, remote.tombs);
