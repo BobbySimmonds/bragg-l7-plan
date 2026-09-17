@@ -153,7 +153,6 @@ const BOOTSTRAP = [
   {id:"b_mu4t8ocn_di1oib",date:"2026-09-23",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:38.567Z"},
   {id:"b_mu4t3t4k_i085rt",date:"2026-09-23",level:7,desk:76,hadid:"estamo01",createdAt:"2026-09-17T00:43:51.476Z"},
   {id:"b_mu4t8uet_r6pv5r",date:"2026-09-24",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:46.421Z"},
-  {id:"b_mu4t5alq_4e24sj",date:"2026-09-24",level:7,desk:76,hadid:"estamo01",createdAt:"2026-09-17T00:45:00.782Z"},
   {id:"b_mu4t60z2_2qxl2g",date:"2026-09-25",level:7,desk:33,hadid:"tstapl01",createdAt:"2026-09-17T00:45:34.958Z"},
   {id:"b_mu4t5q31_2p5vdi",date:"2026-09-25",level:7,desk:76,hadid:"cgeorg10",createdAt:"2026-09-17T00:45:20.845Z"},
   {id:"b_mu4sz5cl_32wx7v",date:"2026-09-25",level:7,desk:147,hadid:"mboric01",createdAt:"2026-09-17T00:38:13.800Z"}
@@ -161,6 +160,9 @@ const BOOTSTRAP = [
 const g = globalThis;
 if (!g.__braggStore__) {
   g.__braggStore__ = { bookings: BOOTSTRAP.slice(), tombs: Object.create(null), ready: true };
+}
+function isBookingId(k) {
+  return typeof k === "string" && k.indexOf("b_") === 0;
 }
 function slotOf(row) {
   return String(row.date) + "|" + Number(row.level) + "|" + Number(row.desk);
@@ -191,7 +193,7 @@ function mergeBookings(base, incoming, tombs) {
   function consider(raw) {
     const row = asBooking(raw);
     if (!row) return;
-    if (dead[row.id] || dead[slotOf(row)]) return;
+    if (dead[row.id]) return;
     const slot = slotOf(row);
     const pd = personDay(row);
     const existingSlot = bySlot[slot];
@@ -275,8 +277,7 @@ async function save(bookings) {
 }
 function tombstone(id, slot) {
   const store = g.__braggStore__;
-  if (id) store.tombs[id] = Date.now();
-  if (slot) store.tombs[slot] = Date.now();
+  if (isBookingId(id)) store.tombs[id] = Date.now();
 }
 
 function today() {
@@ -398,8 +399,11 @@ module.exports = async function handler(req, res) {
         const tombs = Array.isArray(body.tombstones) ? body.tombstones : [];
         tombs.forEach(function (t) {
           if (!t) return;
-          if (typeof t === "string") tombstone(t, t);
-          else tombstone(t.id, t.slot);
+          if (typeof t === "string") {
+            if (isBookingId(t)) tombstone(t);
+            return;
+          }
+          if (isBookingId(t.id)) tombstone(t.id);
         });
         const rows = await load();
         const merged = mergeBookings(rows, incoming, g.__braggStore__.tombs);
@@ -448,8 +452,9 @@ module.exports = async function handler(req, res) {
       if (taken) return send(res, 409, { ok: false, error: "That desk is already taken." });
       const booking = { id: nid(), date: date, level: level, desk: desk, hadid: hid, createdAt: new Date().toISOString() };
       rows.push(booking);
-      await save(rows);
-      return send(res, 201, { ok: true, booking: pub(booking, hid, false) });
+      const kept = (await save(rows)).find(function (r) { return r.id === booking.id; });
+      if (!kept) return send(res, 409, { ok: false, error: "That desk is already taken." });
+      return send(res, 201, { ok: true, booking: pub(kept, hid, false) });
     }
     if (req.method === "DELETE") {
       const body = await readBody(req);
