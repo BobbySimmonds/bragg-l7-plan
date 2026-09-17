@@ -148,11 +148,29 @@ function rosterName(id){
   const hid=String(id||"").trim().toLowerCase();
   return hid && ROSTER[hid] ? ROSTER[hid] : null;
 }
+function loadTombs(){try{const t=JSON.parse(localStorage.getItem("bragg_tombs")||"{}");return t&&typeof t==="object"?t:{};}catch(e){return {};}}
+function saveTombs(){localStorage.setItem("bragg_tombs",JSON.stringify(state.tombs||{}));}
+function slotOf(b){return String(b.date)+"|"+Number(b.level)+"|"+Number(b.desk)}
+function mapRow(b,hid){return {id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||hid||"")),date:b.date,level:Number(b.level),desk:Number(b.desk),hadid:b.hadid||(b.mine?hid:""),mine:!!(b.mine||(b.hadid&&b.hadid===hid))}}
+function unionRows(local,remote,hid){
+  const tombs=state.tombs||{};
+  const bySlot={};
+  function add(b){
+    if(!b||!b.date) return;
+    const row=mapRow(b,hid||state.hadid);
+    const slot=slotOf(row);
+    if(tombs[slot]||(row.id&&tombs[row.id])) return;
+    const prev=bySlot[slot];
+    if(!prev|| (row.id&&String(row.id).indexOf("b_")==0 && String(prev.id).indexOf("b_")!==0)) bySlot[slot]=row;
+  }
+  (remote||[]).forEach(add); (local||[]).forEach(add);
+  return Object.keys(bySlot).map(k=>bySlot[k]);
+}
 const state={
   hadid:(localStorage.getItem("bragg_hadid")||"").toLowerCase(),
   name:localStorage.getItem("bragg_name")||"",
   date:START,week:START,level:(function(){const n=Number(localStorage.getItem("bragg_level")||7);return n===6||n===8?7:n;})(),
-  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false
+  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false,busy:false,tombs:loadTombs()
 };
 try{
   const saved=JSON.parse(localStorage.getItem("bragg_bookings")||"[]");
@@ -242,24 +260,40 @@ function paintVillages(){
 }
 function nid(){return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8)}
 async function bookDesk(n){
+  if(state.busy) return;
   if(state.date<state.today) return;
   const fl=floorOf(state.level);if(fl&&fl.enabled===false){$("deskMsg").textContent="That level is not in use.";$("deskMsg").className="msg";return;}
   if(state.date>bookHorizon(state.today)){$("deskMsg").textContent="You can only book the next 7 weekdays.";$("deskMsg").className="msg";return;}
   const v=villageOf(state.level,n);
   if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;
+  state.busy=true;
+  $("deskMsg").textContent="Saving…";$("deskMsg").className="msg";
   const out=await api("POST","/api/bookings",{hadid:state.hadid,date:state.date,level:state.level,desk:n});
-  if(out.ok){await refresh();paint();$("deskMsg").textContent="You're booked.";$("deskMsg").className="msg ok";return;}
-  if(out.error && out.error!=="offline"){$("deskMsg").textContent=out.error;$("deskMsg").className="msg";return;}
-  if(state.cache.some(b=>(b.mine||b.hadid===state.hadid)&&b.date===state.date)){$("deskMsg").textContent="You already have a desk that day.";$("deskMsg").className="msg";return;}
-  if(state.cache.some(b=>b.date===state.date&&b.level===state.level&&b.desk===n)){$("deskMsg").textContent="That desk is already taken.";$("deskMsg").className="msg";return;}
-  state.cache.push({id:nid(),date:state.date,level:state.level,desk:n,hadid:state.hadid,mine:true});
-  persistCache();paint();$("deskMsg").textContent="You're booked.";$("deskMsg").className="msg ok";
+  if(out.ok){
+    if(out.booking){state.cache=unionRows(state.cache,[out.booking],state.hadid);persistCache();}
+    await refresh();paint();$("deskMsg").textContent="You're booked.";$("deskMsg").className="msg ok";state.busy=false;return;
+  }
+  state.busy=false;
+  $("deskMsg").textContent=(out.error&&out.error!=="offline")?out.error:"Could not save that desk. Try again.";
+  $("deskMsg").className="msg";
 }
 async function cancelRow(row){
+  if(state.busy||!row) return;
+  state.busy=true;
   const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});
-  if(out.ok){await refresh();paint();$("deskMsg").textContent="Cancelled.";$("deskMsg").className="msg ok";return;}
-  if(out.error && out.error!=="offline"){$("deskMsg").textContent=out.error;$("deskMsg").className="msg";return;}
-  state.cache=state.cache.filter(b=>b.id!==row.id);persistCache();paint();$("deskMsg").textContent="Cancelled.";$("deskMsg").className="msg ok";
+  if(out.ok || out.status===404){
+    const slot=slotOf(row);
+    state.tombs=state.tombs||{};
+    if(row.id) state.tombs[row.id]=Date.now();
+    state.tombs[slot]=Date.now();
+    saveTombs();
+    state.cache=state.cache.filter(b=>b.id!==row.id&&slotOf(b)!==slot);
+    persistCache();
+    await refresh();paint();$("deskMsg").textContent="Cancelled.";$("deskMsg").className="msg ok";state.busy=false;return;
+  }
+  state.busy=false;
+  $("deskMsg").textContent=(out.error&&out.error!=="offline")?out.error:"Could not cancel. Try again.";
+  $("deskMsg").className="msg";
 }
 function paint(){
   $("weekLabel").textContent=weekLabel(state.week);
@@ -306,11 +340,14 @@ async function refresh(){
   const data=await api("GET","/api/bookings?hadid="+encodeURIComponent(state.hadid));
   if(data.ok){
     state.live=true;
-    state.cache=(data.bookings||[]).map(b=>({
-      id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||state.hadid)),
-      date:b.date,level:Number(b.level),desk:Number(b.desk),
-      hadid:b.hadid||(b.mine?state.hadid:""),mine:!!b.mine
-    }));
+    const remote=(data.bookings||[]).map(b=>mapRow(b,state.hadid));
+    const merged=unionRows(state.cache,remote,state.hadid);
+    const extra=merged.filter(b=>!remote.some(r=> (r.id&&r.id===b.id) || (r.date===b.date&&Number(r.level)===Number(b.level)&&Number(r.desk)===Number(b.desk))));
+    if(extra.length || Object.keys(state.tombs||{}).length){
+      const sync=await api("POST","/api/bookings",{sync:true,hadid:state.hadid,bookings:extra,tombstones:Object.keys(state.tombs||{})});
+      if(sync.ok&&sync.bookings){state.cache=unionRows([],sync.bookings.map(b=>mapRow(b,state.hadid)),state.hadid);}
+      else state.cache=merged;
+    }else state.cache=merged;
     persistCache();
   }else{
     state.live=false;

@@ -141,25 +141,144 @@ const ROSTER = {
   wgalpi01: { name: "wgalpi01" }
 };
 const BOOKINGS_KEY = "bragg:bookings";
-const SEED=[];
-function fromSeed(s){return {id:s[0],date:s[1],level:s[2],desk:s[3],hadid:s[4],name:s[5],createdAt:s[6]};}
+const BOOTSTRAP = [
+  {id:"b_mu4tft3q_7lr8my",date:"2026-09-21",level:7,desk:33,hadid:"dpeter09",createdAt:"2026-09-17T00:53:11.318Z"},
+  {id:"b_mu4tgamx_lm5pjw",date:"2026-09-21",level:7,desk:69,hadid:"schwarta",createdAt:"2026-09-17T00:53:34.041Z"},
+  {id:"b_mu4t90s5_3zshm5",date:"2026-09-21",level:7,desk:148,hadid:"bcorma02",createdAt:"2026-09-17T00:47:54.677Z"},
+  {id:"b_mu4t2xy7_7gxuee",date:"2026-09-22",level:7,desk:29,hadid:"dgunaw02",createdAt:"2026-09-17T00:43:11.071Z"},
+  {id:"b_mu4t9ogt_mvubfp",date:"2026-09-22",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:48:25.373Z"},
+  {id:"b_mu4t5ult_a2pjk9",date:"2026-09-22",level:7,desk:75,hadid:"estamo01",createdAt:"2026-09-17T00:45:26.705Z"},
+  {id:"b_mu4tc9z0_0y9qxw",date:"2026-09-22",level:7,desk:76,hadid:"cgeorg10",createdAt:"2026-09-17T00:50:00.000Z"},
+  {id:"b_mu4t4wao_cuqusm",date:"2026-09-23",level:7,desk:33,hadid:"tstapl01",createdAt:"2026-09-17T00:44:42.240Z"},
+  {id:"b_mu4t8ocn_di1oib",date:"2026-09-23",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:38.567Z"},
+  {id:"b_mu4t3t4k_i085rt",date:"2026-09-23",level:7,desk:76,hadid:"estamo01",createdAt:"2026-09-17T00:43:51.476Z"},
+  {id:"b_mu4t8uet_r6pv5r",date:"2026-09-24",level:7,desk:38,hadid:"jsingh01",createdAt:"2026-09-17T00:47:46.421Z"},
+  {id:"b_mu4t5alq_4e24sj",date:"2026-09-24",level:7,desk:76,hadid:"estamo01",createdAt:"2026-09-17T00:45:00.782Z"},
+  {id:"b_mu4t60z2_2qxl2g",date:"2026-09-25",level:7,desk:33,hadid:"tstapl01",createdAt:"2026-09-17T00:45:34.958Z"},
+  {id:"b_mu4t5q31_2p5vdi",date:"2026-09-25",level:7,desk:76,hadid:"cgeorg10",createdAt:"2026-09-17T00:45:20.845Z"},
+  {id:"b_mu4sz5cl_32wx7v",date:"2026-09-25",level:7,desk:147,hadid:"mboric01",createdAt:"2026-09-17T00:38:13.800Z"}
+];
 const g = globalThis;
-if (!g.__braggBookings__) g.__braggBookings__ = [];
-let redisClient = undefined;
-function redisUrl() { return process.env.REDIS_URL || process.env.KV_URL || ""; }
-function db() {
-  if (redisClient !== undefined) return redisClient;
-  const url = redisUrl();
-  if (!url) { redisClient = null; return null; }
+if (!g.__braggStore__) {
+  g.__braggStore__ = { bookings: BOOTSTRAP.slice(), tombs: Object.create(null), ready: true };
+}
+function slotOf(row) {
+  return String(row.date) + "|" + Number(row.level) + "|" + Number(row.desk);
+}
+function personDay(row) {
+  return String(row.hadid || "").toLowerCase() + "|" + String(row.date);
+}
+function asBooking(row) {
+  if (!row) return null;
+  const hadid = hadidOf(row.hadid);
+  const date = String(row.date || "");
+  const level = Number(row.level);
+  const desk = Number(row.desk);
+  if (!hadid || !date || !level || !desk) return null;
+  return {
+    id: String(row.id || nid()),
+    date: date,
+    level: level,
+    desk: desk,
+    hadid: hadid,
+    createdAt: row.createdAt || new Date().toISOString()
+  };
+}
+function mergeBookings(base, incoming, tombs) {
+  const dead = tombs || g.__braggStore__.tombs;
+  const bySlot = Object.create(null);
+  const byPerson = Object.create(null);
+  function consider(raw) {
+    const row = asBooking(raw);
+    if (!row) return;
+    if (dead[row.id] || dead[slotOf(row)]) return;
+    const slot = slotOf(row);
+    const pd = personDay(row);
+    const existingSlot = bySlot[slot];
+    if (existingSlot && existingSlot.hadid !== row.hadid) {
+      const keep = String(existingSlot.createdAt || "") <= String(row.createdAt || "") ? existingSlot : row;
+      bySlot[slot] = keep;
+      byPerson[personDay(keep)] = keep;
+      return;
+    }
+    const existingPd = byPerson[pd];
+    if (existingPd && slotOf(existingPd) !== slot) {
+      const keep = String(existingPd.createdAt || "") <= String(row.createdAt || "") ? existingPd : row;
+      delete bySlot[slotOf(existingPd)];
+      bySlot[slotOf(keep)] = keep;
+      byPerson[pd] = keep;
+      return;
+    }
+    if (!existingSlot || String(row.createdAt || "") < String(existingSlot.createdAt || "")) {
+      bySlot[slot] = row;
+      byPerson[pd] = row;
+    }
+  }
+  (base || []).forEach(consider);
+  (incoming || []).forEach(consider);
+  return Object.keys(bySlot).map(function (k) { return bySlot[k]; }).sort(function (a, b) {
+    return a.date.localeCompare(b.date) || a.level - b.level || a.desk - b.desk;
+  });
+}
+async function persistRemote(store) {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+  if (!url || !token) return;
   try {
-    const Redis = require("ioredis");
-    redisClient = new Redis(url, { maxRetriesPerRequest: 1, connectTimeout: 4000, lazyConnect: true });
-    return redisClient;
+    await fetch(url.replace(/\/$/, "") + "/set/" + encodeURIComponent(BOOKINGS_KEY), {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ initialised: true, updatedAt: new Date().toISOString(), bookings: store.bookings, tombs: store.tombs })
+    });
   } catch (e) {
-    redisClient = null;
+    console.error("kv_save", e);
+  }
+}
+async function loadRemote() {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+  if (!url || !token) return null;
+  try {
+    const res = await fetch(url.replace(/\/$/, "") + "/get/" + encodeURIComponent(BOOKINGS_KEY), {
+      headers: { Authorization: "Bearer " + token }
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const raw = json && (json.result || json.value || json);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed) return null;
+    if (Array.isArray(parsed)) return { bookings: parsed, tombs: Object.create(null) };
+    return {
+      bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
+      tombs: parsed.tombs && typeof parsed.tombs === "object" ? parsed.tombs : Object.create(null)
+    };
+  } catch (e) {
+    console.error("kv_load", e);
     return null;
   }
 }
+async function load() {
+  const store = g.__braggStore__;
+  const remote = await loadRemote();
+  if (remote) {
+    store.tombs = Object.assign(Object.create(null), store.tombs, remote.tombs);
+    store.bookings = mergeBookings(store.bookings, remote.bookings, store.tombs);
+  }
+  store.bookings = mergeBookings(store.bookings, [], store.tombs);
+  return store.bookings;
+}
+async function save(bookings) {
+  const store = g.__braggStore__;
+  store.bookings = mergeBookings(bookings || [], [], store.tombs);
+  await persistRemote(store);
+  return store.bookings;
+}
+function tombstone(id, slot) {
+  const store = g.__braggStore__;
+  if (id) store.tombs[id] = Date.now();
+  if (slot) store.tombs[slot] = Date.now();
+}
+
 function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Adelaide" });
 }
@@ -213,46 +332,14 @@ function send(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 function nid() { return "b_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8); }
-async function load() {
-  const r = db();
-  if (r) {
-    try {
-      if (typeof r.connect === "function" && r.status !== "ready") await r.connect();
-      const raw = await r.get(BOOKINGS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
-        if (parsed && Array.isArray(parsed.bookings) && parsed.bookings.length) return parsed.bookings;
-      }
-    } catch (e) {
-      console.error("redis_load", e);
-    }
-  }
-  if (g.__braggBookings__ && g.__braggBookings__.length) return g.__braggBookings__;
-  const seeded = SEED.map(fromSeed);
-  g.__braggBookings__ = seeded;
-  try { await save(seeded); } catch (e) { console.error("seed_save", e); }
-  return seeded;
-}
-async function save(bookings) {
-  g.__braggBookings__ = bookings;
-  const r = db();
-  if (!r) return;
-  try {
-    if (typeof r.connect === "function" && r.status !== "ready") await r.connect();
-    await r.set(BOOKINGS_KEY, JSON.stringify({ initialised: true, updatedAt: new Date().toISOString(), bookings: bookings }));
-  } catch (e) {
-    console.error("redis_save", e);
-  }
-}
 function pub(row, hadid, admin) {
   const mine = !!(hadid && row.hadid === hadid);
   return {
-    id: mine || admin ? row.id : undefined,
+    id: row.id,
     date: row.date, level: row.level, desk: row.desk,
     hadid: row.hadid || "",
     mine: mine,
-    createdAt: admin || mine ? row.createdAt : undefined,
+    createdAt: row.createdAt,
     locked: !(row.date > today()),
   };
 }
@@ -294,13 +381,30 @@ module.exports = async function handler(req, res) {
       if (date) out = out.filter(function (r) { return r.date === date; });
       if (hadid && url.searchParams.get("mine") === "1") out = out.filter(function (r) { return r.hadid === hadid; });
       out.sort(function (a, b) { return a.date.localeCompare(b.date) || a.level - b.level || a.desk - b.desk; });
-      return send(res, 200, { ok: true, today: today(), bookings: out.map(function (r) { return pub(r, hadid, all && who.admin); }) });
+      return send(res, 200, { ok: true, today: today(), shared: true, bookings: out.map(function (r) { return pub(r, hadid, all && who.admin); }) });
     }
     if (req.method === "POST") {
       const body = await readBody(req);
       if (body && body.wipe && who.admin) {
-        await save([]);
+        g.__braggStore__.bookings = [];
+        g.__braggStore__.tombs = Object.create(null);
+        await persistRemote(g.__braggStore__);
         return send(res, 200, { ok: true, wiped: true, remaining: 0 });
+      }
+      if (body && body.sync === true) {
+        const hid = hadidOf(body.hadid);
+        if (!rosterOf(hid)) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
+        const incoming = Array.isArray(body.bookings) ? body.bookings : [];
+        const tombs = Array.isArray(body.tombstones) ? body.tombstones : [];
+        tombs.forEach(function (t) {
+          if (!t) return;
+          if (typeof t === "string") tombstone(t, t);
+          else tombstone(t.id, t.slot);
+        });
+        const rows = await load();
+        const merged = mergeBookings(rows, incoming, g.__braggStore__.tombs);
+        await save(merged);
+        return send(res, 200, { ok: true, shared: true, bookings: merged.map(function (r) { return pub(r, hid, false); }) });
       }
       if (body && body.restore && who.admin) {
         const incoming = Array.isArray(body.bookings) ? body.bookings : [];
@@ -359,9 +463,10 @@ module.exports = async function handler(req, res) {
       const row = rows[idx];
       if (!who.admin && row.hadid !== hid) return send(res, 403, { ok: false, error: "You can only cancel your own desk." });
       if (!who.admin && !(row.date > today())) return send(res, 409, { ok: false, error: "Too late to cancel that day." });
+      tombstone(row.id, slotOf(row));
       rows.splice(idx, 1);
       await save(rows);
-      return send(res, 200, { ok: true });
+      return send(res, 200, { ok: true, tombstone: { id: row.id, slot: slotOf(row) } });
     }
     return send(res, 405, { ok: false, error: "Method not allowed." });
   } catch (err) {
