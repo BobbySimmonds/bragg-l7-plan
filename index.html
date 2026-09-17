@@ -279,7 +279,8 @@ function unionRows(local,remote,hid){
     if(!b||!b.date) return;
     const row=mapRow(b,hid||state.hadid);
     const slot=slotOf(row);
-    if(tombs[slot]||(row.id&&tombs[row.id])) return;
+    if(row.id&&tombs[row.id]) return;
+    if(tombs[slot]&&row.hadid===(hid||state.hadid)) return;
     const prev=bySlot[slot];
     if(!prev|| (row.id&&String(row.id).indexOf("b_")==0 && String(prev.id).indexOf("b_")!==0)) bySlot[slot]=row;
   }
@@ -464,7 +465,7 @@ async function refresh(){
     const merged=unionRows(state.cache,remote,state.hadid);
     const extra=merged.filter(b=>!remote.some(r=> (r.id&&r.id===b.id) || (r.date===b.date&&Number(r.level)===Number(b.level)&&Number(r.desk)===Number(b.desk))));
     if(extra.length || Object.keys(state.tombs||{}).length){
-      const sync=await api("POST","/api/bookings",{sync:true,hadid:state.hadid,bookings:extra,tombstones:Object.keys(state.tombs||{})});
+      const sync=await api("POST","/api/bookings",{sync:true,hadid:state.hadid,bookings:extra,tombstones:Object.keys(state.tombs||{}).filter(k=>String(k).indexOf("b_")==0)});
       if(sync.ok&&sync.bookings){state.cache=unionRows([],sync.bookings.map(b=>mapRow(b,state.hadid)),state.hadid);}
       else state.cache=merged;
     }else state.cache=merged;
