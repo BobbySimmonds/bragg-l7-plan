@@ -111,6 +111,7 @@ const ROSTER = {
   kcarte02: { name: "kcarte02" },
   kkirkl01: { name: "kkirkl01" },
   mbatti03: { name: "mbatti03" },
+  mcriso01: { name: "mcriso01" },
   mdawki02: { name: "mdawki02" },
   mdo06: { name: "mdo06" },
   menorm01: { name: "menorm01" },

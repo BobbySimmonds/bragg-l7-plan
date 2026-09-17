@@ -115,6 +115,7 @@ const ROSTER={
   kcarte02: "kcarte02",
   kkirkl01: "kkirkl01",
   mbatti03: "mbatti03",
+  mcriso01: "mcriso01",
   mdawki02: "mdawki02",
   mdo06: "mdo06",
   menorm01: "menorm01",
