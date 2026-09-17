@@ -5,6 +5,7 @@ const FLOORS=[
   {level:7,desks:150,note:"FF&E workstations"},
   {level:8,desks:152,note:"Not in use",enabled:false}
 ];
+const HELD=[{level:7,desk:130}];
 const L7_VILLAGES=[
   {id:"corp",tag:"Corporate",label:"Corporate Services, Security & Service Management",count:28},
   {id:"servicedesk",tag:"Service Desk",label:"Service Desk",count:46},
@@ -200,6 +201,7 @@ function persistCache(){
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
+function deskHeld(level,desk){return HELD.some(h=>h.level===Number(level)&&h.desk===Number(desk))}
 function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
@@ -264,6 +266,7 @@ async function bookDesk(n){
   if(state.busy) return;
   if(state.date<state.today) return;
   const fl=floorOf(state.level);if(fl&&fl.enabled===false){$("deskMsg").textContent="That level is not in use.";$("deskMsg").className="msg";return;}
+  if(deskHeld(state.level,n)){$("deskMsg").textContent="That desk is out of use.";$("deskMsg").className="msg";return;}
   if(state.date>bookHorizon(state.today)){$("deskMsg").textContent="You can only book the next 7 weekdays.";$("deskMsg").className="msg";return;}
   const v=villageOf(state.level,n);
   if(!confirm("Book "+deskName(state.level,n)+(v?" ("+v.tag+")":"")+" on "+fmt(state.date)+"?"))return;
@@ -327,11 +330,12 @@ function paint(){
   const list=deskList();
   $("grid").innerHTML=list.map(n=>{
     const row=by.get(n),v=villageOf(state.level,n);
+    const held=deskHeld(state.level,n);
     const mine=row&&(row.mine||row.hadid===state.hadid);
-    const cls=(closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
+    const cls=(held||closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=row?(mine?"Yours":("Taken · "+(row.hadid||"Booked"))):(closed?"Closed":"Open");
-    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
+    const sub=held?"Out of use":row?(mine?"Yours":("Taken · "+(row.hadid||"Booked"))):(closed?"Closed":"Open");
+    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(held||closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
   $("grid").querySelectorAll(".desk.mine").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id)return;await cancelRow(row);});

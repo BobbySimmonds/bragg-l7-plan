@@ -8,6 +8,7 @@ const FLOORS = [
   { level: 7, desks: 150, note: "FF&E workstations" },
   { level: 8, desks: 152, note: "Not in use", enabled: false },
 ];
+const HELD_DESKS = [{ level: 7, desk: 130 }];
 const ROSTER = {
   acousi03: { name: "Alison Cousins" },
   aandre03: { name: "Andrea Andrews" },
@@ -199,6 +200,7 @@ function mergeBookings(base, incoming, tombs) {
     const row = asBooking(raw);
     if (!row) return;
     if (dead[row.id]) return;
+    if (deskHeld(row.level, row.desk)) return;
     const slot = slotOf(row);
     const pd = personDay(row);
     const existingSlot = bySlot[slot];
@@ -323,6 +325,9 @@ function auth(req) { return { admin: header(req, "x-admin-pin").trim() === ADMIN
 function hadidOf(v) { return String(v || "").trim().toLowerCase(); }
 function rosterOf(hid) { return ROSTER[hid] || null; }
 function floorOf(level) { return FLOORS.find(function (f) { return f.level === Number(level); }); }
+function deskHeld(level, desk) {
+  return HELD_DESKS.some(function (h) { return h.level === Number(level) && h.desk === Number(desk); });
+}
 function deskName(level, desk) {
   const n = String(desk).padStart(2, "0");
   if (Number(level) === 7) return "WS7." + n;
@@ -451,6 +456,7 @@ module.exports = async function handler(req, res) {
       if (date > bookHorizon(day)) return send(res, 400, { ok: false, error: "You can only book the next 7 weekdays." });
       if (!(date >= START) || date > END || date < day || dow === 0 || dow === 6) return send(res, 400, { ok: false, error: "That day is not bookable." });
       if (!floor || floor.enabled === false || !(desk >= 1) || desk > floor.desks) return send(res, 400, { ok: false, error: floor && floor.enabled === false ? "That level is not in use." : "That desk does not exist." });
+      if (deskHeld(level, desk)) return send(res, 400, { ok: false, error: "That desk is out of use." });
       const rows = await load();
       const mine = rows.find(function (r) { return r.hadid === hid && r.date === date; });
       if (mine) return send(res, 409, { ok: false, error: "You already have " + deskName(mine.level, mine.desk) + " on that day.", booking: pub(mine, hid, false) });
