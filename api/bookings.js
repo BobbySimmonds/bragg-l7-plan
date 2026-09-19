@@ -111,6 +111,7 @@ const ROSTER = {
   kcarte02: 1,
   kkirkl01: 1,
   mbatti03: 1,
+  mbrady02: 1,
   mcriso01: 1,
   mdawki02: 1,
   mdo06: 1,
