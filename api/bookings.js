@@ -8,7 +8,7 @@ const FLOORS = [
   { level: 7, desks: 150, note: "FF&E workstations" },
   { level: 8, desks: 152, note: "Not in use", enabled: false },
 ];
-const HELD_DESKS = [{ level: 7, desk: 130 }];
+const HELD_DESKS = [{ level: 7, desk: 129 }, { level: 7, desk: 130 }];
 const ROSTER = {
   acousi03: 1,
   aandre03: 1,
