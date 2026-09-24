@@ -14,7 +14,7 @@ const resetBtn = document.getElementById("resetBtn");
 const tip = document.getElementById("tip");
 const countPill = document.getElementById("countPill");
 const DEFAULT_INFO = "<h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p>";
-const HELD_WS = { "WS7.130": true };
+const HELD_WS = { "WS7.129": true, "WS7.130": true };
 
 let active = null;
 let desksOn = true;
