@@ -151,10 +151,10 @@ function rosterName(id){
   const hid=String(id||"").trim().toLowerCase();
   return hid && ROSTER[hid] ? ROSTER[hid] : null;
 }
-function loadTombs(){try{const t=JSON.parse(localStorage.getItem("bragg_tombs")||"{}");return t&&typeof t==="object"?t:{};}catch(e){return {};}}
+function loadTombs(){try{const t=JSON.parse(localStorage.getItem("bragg_tombs")||"{}");const out={};if(t&&typeof t==="object") Object.keys(t).forEach(k=>{if(String(k).indexOf("b_")==0) out[k]=t[k];});return out;}catch(e){return {};}}
 function saveTombs(){localStorage.setItem("bragg_tombs",JSON.stringify(state.tombs||{}));}
 function slotOf(b){return String(b.date)+"|"+Number(b.level)+"|"+Number(b.desk)}
-function mapRow(b,hid){return {id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||hid||"")),date:b.date,level:Number(b.level),desk:Number(b.desk),hadid:b.hadid||(b.mine?hid:""),mine:!!(b.mine||(b.hadid&&b.hadid===hid))}}
+function mapRow(b,hid){return {id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||hid||"")),date:b.date,level:Number(b.level),desk:Number(b.desk),hadid:b.hadid||(b.mine?hid:""),mine:!!(b.mine||(b.hadid&&b.hadid===hid)),createdAt:b.createdAt||""}}
 function unionRows(local,remote,hid){
   const tombs=state.tombs||{};
   const bySlot={};
@@ -163,7 +163,6 @@ function unionRows(local,remote,hid){
     const row=mapRow(b,hid||state.hadid);
     const slot=slotOf(row);
     if(row.id&&tombs[row.id]) return;
-    if(tombs[slot]&&row.hadid===(hid||state.hadid)) return;
     const prev=bySlot[slot];
     if(!prev|| (row.id&&String(row.id).indexOf("b_")==0 && String(prev.id).indexOf("b_")!==0)) bySlot[slot]=row;
   }
@@ -199,7 +198,7 @@ function firstOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).fi
 function weekHasOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function persistCache(){
-  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||""}))));
+  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",createdAt:b.createdAt||""}))));
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
@@ -280,20 +279,27 @@ async function bookDesk(n){
     await refresh();paint();$("deskMsg").textContent="You're booked.";$("deskMsg").className="msg ok";state.busy=false;return;
   }
   state.busy=false;
+  if(out.booking){
+    if(out.booking.id) delete state.tombs[out.booking.id];
+    delete state.tombs[String(out.booking.date)+"|"+Number(out.booking.level)+"|"+Number(out.booking.desk)];
+    saveTombs();
+    state.cache=unionRows(state.cache,[out.booking],state.hadid);
+    persistCache();
+    paint();
+  }
   $("deskMsg").textContent=(out.error&&out.error!=="offline")?out.error:"Could not save that desk. Try again.";
   $("deskMsg").className="msg";
 }
 async function cancelRow(row){
   if(state.busy||!row) return;
   state.busy=true;
-  const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid});
+  const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid,date:row.date,level:row.level,desk:row.desk});
   if(out.ok || out.status===404){
-    const slot=slotOf(row);
     state.tombs=state.tombs||{};
-    if(row.id) state.tombs[row.id]=Date.now();
-    state.tombs[slot]=Date.now();
+    if(row.id&&String(row.id).indexOf("b_")==0) state.tombs[row.id]=Date.now();
+    delete state.tombs[slotOf(row)];
     saveTombs();
-    state.cache=state.cache.filter(b=>b.id!==row.id&&slotOf(b)!==slot);
+    state.cache=state.cache.filter(b=>b.id!==row.id&&!(b.date===row.date&&(b.hadid===state.hadid||b.mine)));
     persistCache();
     await refresh();paint();$("deskMsg").textContent="Cancelled.";$("deskMsg").className="msg ok";state.busy=false;return;
   }

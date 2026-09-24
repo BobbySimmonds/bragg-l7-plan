@@ -202,6 +202,12 @@ function mergeBookings(base, incoming, tombs) {
     const row = asBooking(raw);
     if (!row) return;
     if (dead[row.id]) return;
+    const pdAt = dead["pd:" + personDay(row)];
+    if (pdAt) {
+      const tombIso = new Date(Number(pdAt)).toISOString();
+      const created = raw && raw.createdAt ? String(raw.createdAt) : "";
+      if (!created || created <= tombIso) return;
+    }
     if (deskHeld(row.level, row.desk)) return;
     const slot = slotOf(row);
     const pd = personDay(row);
@@ -285,9 +291,11 @@ async function save(bookings) {
   await persistRemote(store);
   return store.bookings;
 }
-function tombstone(id, slot) {
+function tombstone(id, row) {
   const store = g.__braggStore__;
-  if (isBookingId(id)) store.tombs[id] = Date.now();
+  const now = Date.now();
+  if (isBookingId(id)) store.tombs[id] = now;
+  if (row && row.hadid && row.date) store.tombs["pd:" + String(row.hadid).toLowerCase() + "|" + String(row.date)] = now;
 }
 
 function today() {
@@ -474,17 +482,34 @@ module.exports = async function handler(req, res) {
       const body = await readBody(req);
       const hid = hadidOf(body.hadid);
       const id = String(body.id || "");
-      if (!id) return send(res, 400, { ok: false, error: "Missing booking." });
+      const date = String(body.date || "");
+      if (!id && !date) return send(res, 400, { ok: false, error: "Missing booking." });
       if (!who.admin && !rosterOf(hid)) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
       const rows = await load();
-      const idx = rows.findIndex(function (r) { return r.id === id; });
-      if (idx === -1) return send(res, 404, { ok: false, error: "Booking not found." });
-      const row = rows[idx];
+      let targets = [];
+      if (id) {
+        const row = rows.find(function (r) { return r.id === id; });
+        if (row && (who.admin || row.hadid === hid)) {
+          targets = rows.filter(function (r) { return r.hadid === row.hadid && r.date === row.date; });
+        }
+      }
+      if (!targets.length && hid && date) {
+        targets = rows.filter(function (r) { return r.hadid === hid && r.date === date; });
+      }
+      if (!targets.length) {
+        if (hid && date) {
+          tombstone("", { hadid: hid, date: date });
+          await persistRemote(g.__braggStore__);
+        }
+        return send(res, 200, { ok: true, alreadyGone: true });
+      }
+      const row = targets[0];
       if (!who.admin && row.hadid !== hid) return send(res, 403, { ok: false, error: "You can only cancel your own desk." });
       if (!who.admin && !(row.date > today())) return send(res, 409, { ok: false, error: "Too late to cancel that day." });
-      tombstone(row.id, slotOf(row));
-      rows.splice(idx, 1);
-      await save(rows);
+      const drop = Object.create(null);
+      targets.forEach(function (r) { drop[r.id] = 1; tombstone(r.id, r); });
+      const next = rows.filter(function (r) { return !drop[r.id]; });
+      await save(next);
       return send(res, 200, { ok: true, tombstone: { id: row.id, slot: slotOf(row) } });
     }
     return send(res, 405, { ok: false, error: "Method not allowed." });
