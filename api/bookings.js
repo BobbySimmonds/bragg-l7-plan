@@ -338,7 +338,10 @@ function hadidOf(v) { return String(v || "").trim().toLowerCase(); }
 function rosterOf(hid) { return ROSTER[hid] || null; }
 function floorOf(level) { return FLOORS.find(function (f) { return f.level === Number(level); }); }
 function deskHeld(level, desk) {
-  return HELD_DESKS.some(function (h) { return h.level === Number(level) && h.desk === Number(desk); });
+  level = Number(level);
+  desk = Number(desk);
+  if (level === 7 && desk >= 1 && desk <= 22) return true;
+  return HELD_DESKS.some(function (h) { return h.level === level && h.desk === desk; });
 }
 function deskName(level, desk) {
   const n = String(desk).padStart(2, "0");

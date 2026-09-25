@@ -14,7 +14,7 @@ const resetBtn = document.getElementById("resetBtn");
 const tip = document.getElementById("tip");
 const countPill = document.getElementById("countPill");
 const DEFAULT_INFO = "<h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p>";
-const HELD_WS = { "WS7.129": true, "WS7.130": true };
+function heldWs(ws){var m=/^WS7\.(\d+)$/.exec(ws||"");if(!m)return false;var n=Number(m[1]);return (n>=1&&n<=22)||n===129||n===130;}
 
 let active = null;
 let desksOn = true;
@@ -37,7 +37,7 @@ function paintOverlay() {
     (desksOn
       ? DESKS.map(
           (d) =>
-            `<rect class="desk-tile v-${d.village}${HELD_WS[d.ws] ? " held" : ""}" data-key="${d.key}" data-village="${d.village}" data-ws="${d.ws}" x="0" y="0" width="${d.w}" height="${d.h}" rx="1.2" opacity="${dim(d.village)}" transform="translate(${d.x} ${d.y}) rotate(${d.r})"/>`,
+            `<rect class="desk-tile v-${d.village}${heldWs(d.ws) ? " held" : ""}" data-key="${d.key}" data-village="${d.village}" data-ws="${d.ws}" x="0" y="0" width="${d.w}" height="${d.h}" rx="1.2" opacity="${dim(d.village)}" transform="translate(${d.x} ${d.y}) rotate(${d.r})"/>`,
         ).join("")
       : "");
   overlay.querySelectorAll(".zone").forEach((el) => {
@@ -74,7 +74,7 @@ function showDesk(el, e) {
   tip.hidden = false;
   tip.style.left = e.clientX - rect.left + 12 + "px";
   tip.style.top = e.clientY - rect.top + 12 + "px";
-  tip.innerHTML = `<b>${el.dataset.ws || z.short}</b><div>Level 7 · ${HELD_WS[el.dataset.ws] ? "Out of use" : z.label}</div>`;
+  tip.innerHTML = `<b>${el.dataset.ws || z.short}</b><div>Level 7 · ${heldWs(el.dataset.ws) ? "Out of use" : z.label}</div>`;
 }
 function hideTip() {
   tip.hidden = true;
