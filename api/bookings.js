@@ -126,6 +126,7 @@ const ROSTER = {
   ntayeb01: 1,
   phodgk01: 1,
   rhasan01: 1,
+  rredil01: 1,
   rtaylo24: 1,
   rwheel02: 1,
   sammul01: 1,
@@ -139,6 +140,7 @@ const ROSTER = {
   stonem: 1,
   tgaras03: 1,
   tvanth01: 1,
+  ukhan03: 1,
   vrana04: 1,
   vsuram01: 1,
   wgalpi01: 1
