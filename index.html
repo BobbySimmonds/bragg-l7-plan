@@ -324,7 +324,7 @@ function persistCache(){
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
-function deskHeld(level,desk){return HELD.some(h=>h.level===Number(level)&&h.desk===Number(desk))}
+function deskHeld(level,desk){level=Number(level);desk=Number(desk);if(level===7&&desk>=1&&desk<=22)return true;return HELD.some(h=>h.level===level&&h.desk===desk)}
 function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
