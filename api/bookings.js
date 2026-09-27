@@ -367,7 +367,7 @@ function pub(row, hadid, admin) {
     hadid: row.hadid || "",
     mine: mine,
     createdAt: row.createdAt,
-    locked: !(row.date > today()),
+    locked: row.date < today(),
   };
 }
 function readBody(req) {
@@ -510,7 +510,7 @@ module.exports = async function handler(req, res) {
       }
       const row = targets[0];
       if (!who.admin && row.hadid !== hid) return send(res, 403, { ok: false, error: "You can only cancel your own desk." });
-      if (!who.admin && !(row.date > today())) return send(res, 409, { ok: false, error: "Too late to cancel that day." });
+      if (!who.admin && row.date < today()) return send(res, 409, { ok: false, error: "Too late to cancel that day." });
       const drop = Object.create(null);
       targets.forEach(function (r) { drop[r.id] = 1; tombstone(r.id, r); });
       const next = rows.filter(function (r) { return !drop[r.id]; });
