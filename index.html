@@ -357,7 +357,7 @@ function paintMine(){
   $("mineHint").textContent=rows.length?rows.length+" booked · tap a row to jump there":"Nothing booked yet. Your days will sit here.";
   if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick a day in the next 7 weekdays. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
-    const locked=r.date<=state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
+    const locked=r.date<state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
     const tag=v?'<span class="mine-tag v-'+v.id+'">'+v.tag+'</span>':"";
     return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+tag+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
   }).join("")+"</tbody></table>";
