@@ -285,16 +285,61 @@ async function load() {
     store.tombs = Object.assign(Object.create(null), store.tombs, remote.tombs);
     store.bookings = mergeBookings(store.bookings, remote.bookings, store.tombs);
   }
-  store.bookings = mergeBookings(store.bookings, [], store.tombs);
+  store.bookings = applyPinned(mergeBookings(store.bookings, [], store.tombs));
   return store.bookings;
 }
 async function save(bookings) {
   const store = g.__braggStore__;
-  store.bookings = mergeBookings(bookings || [], [], store.tombs);
+  store.bookings = applyPinned(mergeBookings(bookings || [], [], store.tombs));
   await persistRemote(store);
   return store.bookings;
 }
+const PINNED_RULES = [
+  { hadid: "nrashe03", level: 7, desk: 136, dows: [2, 3, 4] }
+];
+function isPinned(row) {
+  return !!(row && (row.pinned || String(row.id || "").indexOf("pin_") === 0));
+}
+function pinnedForRange() {
+  const out = [];
+  let d = today();
+  if (d < START) d = START;
+  while (d <= END) {
+    const dow = new Date(d + "T00:00:00Z").getUTCDay();
+    PINNED_RULES.forEach(function (rule) {
+      if (rule.dows.indexOf(dow) === -1) return;
+      out.push({
+        id: "pin_" + rule.hadid + "_" + rule.desk + "_" + d,
+        date: d,
+        level: rule.level,
+        desk: rule.desk,
+        hadid: rule.hadid,
+        createdAt: "2020-01-01T00:00:00.000Z",
+        pinned: true
+      });
+    });
+    d = addDays(d, 1);
+  }
+  return out;
+}
+function applyPinned(rows) {
+  const pins = pinnedForRange();
+  const slots = Object.create(null);
+  const days = Object.create(null);
+  pins.forEach(function (p) {
+    slots[slotOf(p)] = 1;
+    days[personDay(p)] = 1;
+  });
+  const kept = (rows || []).filter(function (r) {
+    if (!r || isPinned(r)) return false;
+    if (slots[slotOf(r)]) return false;
+    if (days[personDay(r)]) return false;
+    return true;
+  });
+  return kept.concat(pins);
+}
 function tombstone(id, row) {
+  if (String(id || "").indexOf("pin_") === 0) return;
   const store = g.__braggStore__;
   const now = Date.now();
   if (isBookingId(id)) store.tombs[id] = now;
@@ -368,7 +413,8 @@ function pub(row, hadid, admin) {
     hadid: row.hadid || "",
     mine: mine,
     createdAt: row.createdAt,
-    locked: row.date < today(),
+    locked: row.date < today() || !!row.pinned,
+    pinned: !!row.pinned,
   };
 }
 function readBody(req) {
@@ -504,11 +550,14 @@ module.exports = async function handler(req, res) {
       }
       if (!targets.length) {
         if (hid && date) {
+          const pins = pinnedForRange().filter(function (p) { return p.hadid === hid && p.date === date; });
+          if (pins.length) return send(res, 409, { ok: false, error: "That desk is booked permanently." });
           tombstone("", { hadid: hid, date: date });
           await persistRemote(g.__braggStore__);
         }
         return send(res, 200, { ok: true, alreadyGone: true });
       }
+      if (targets.some(isPinned)) return send(res, 409, { ok: false, error: "That desk is booked permanently." });
       const row = targets[0];
       if (!who.admin && row.hadid !== hid) return send(res, 403, { ok: false, error: "You can only cancel your own desk." });
       if (!who.admin && row.date < today()) return send(res, 409, { ok: false, error: "Too late to cancel that day." });
