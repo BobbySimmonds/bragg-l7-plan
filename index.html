@@ -277,7 +277,7 @@ function rosterName(id){
 function loadTombs(){try{const t=JSON.parse(localStorage.getItem("bragg_tombs")||"{}");const out={};if(t&&typeof t==="object") Object.keys(t).forEach(k=>{if(String(k).indexOf("b_")==0) out[k]=t[k];});return out;}catch(e){return {};}}
 function saveTombs(){localStorage.setItem("bragg_tombs",JSON.stringify(state.tombs||{}));}
 function slotOf(b){return String(b.date)+"|"+Number(b.level)+"|"+Number(b.desk)}
-function mapRow(b,hid){return {id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||hid||"")),date:b.date,level:Number(b.level),desk:Number(b.desk),hadid:b.hadid||(b.mine?hid:""),mine:!!(b.mine||(b.hadid&&b.hadid===hid)),createdAt:b.createdAt||""}}
+function mapRow(b,hid){return {id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||hid||"")),date:b.date,level:Number(b.level),desk:Number(b.desk),hadid:b.hadid||(b.mine?hid:""),mine:!!(b.mine||(b.hadid&&b.hadid===hid)),createdAt:b.createdAt||"",pinned:!!b.pinned}}
 function unionRows(local,remote,hid){
   const tombs=state.tombs||{};
   const bySlot={};
@@ -285,6 +285,8 @@ function unionRows(local,remote,hid){
     if(!b||!b.date) return;
     const row=mapRow(b,hid||state.hadid);
     const slot=slotOf(row);
+    if(row.pinned){bySlot[slot]=row;return;}
+    if(bySlot[slot]&&bySlot[slot].pinned) return;
     if(row.id&&tombs[row.id]) return;
     const prev=bySlot[slot];
     if(!prev|| (row.id&&String(row.id).indexOf("b_")==0 && String(prev.id).indexOf("b_")!==0)) bySlot[slot]=row;
@@ -303,7 +305,7 @@ try{
   if(Array.isArray(saved)) state.cache=saved.map(b=>({
     id:b.id||(b.date+"-"+b.level+"-"+b.desk+"-"+(b.hadid||"")),
     date:b.date,level:Number(b.level),desk:Number(b.desk),
-    hadid:b.hadid||"",mine:!!(b.hadid&&b.hadid===state.hadid)
+    hadid:b.hadid||"",mine:!!(b.hadid&&b.hadid===state.hadid),pinned:!!b.pinned
   }));
 }catch(e){}
 const $=id=>document.getElementById(id);
@@ -321,7 +323,7 @@ function firstOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).fi
 function weekHasOpen(mon){const h=bookHorizon(state.today);return weekDays(mon).some(d=>d>=state.today&&d<=h)}
 function clampWeek(mon){if(mon<firstWeek)return firstWeek;if(mon>lastWeek)return lastWeek;return mon}
 function persistCache(){
-  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",createdAt:b.createdAt||""}))));
+  localStorage.setItem("bragg_bookings",JSON.stringify(state.cache.map(b=>({id:b.id,date:b.date,level:b.level,desk:b.desk,hadid:b.hadid||"",createdAt:b.createdAt||"",pinned:!!b.pinned}))));
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
@@ -358,9 +360,9 @@ function paintMine(){
   $("mineHint").textContent=rows.length?rows.length+" booked · tap a row to jump there":"Nothing booked yet. Your days will sit here.";
   if(!rows.length){$("mineTable").innerHTML='<div class="empty">Pick a day in the next 7 weekdays. Each day can hold one desk.</div>';return;}
   $("mineTable").innerHTML='<table><thead><tr><th>Day</th><th>Desk</th><th></th></tr></thead><tbody>'+rows.map(r=>{
-    const locked=r.date<state.today,on=r.date===state.date,v=villageOf(r.level,r.desk);
+    const locked=r.date<state.today||r.pinned,on=r.date===state.date,v=villageOf(r.level,r.desk);
     const tag=v?'<span class="mine-tag v-'+v.id+'">'+v.tag+'</span>':"";
-    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+tag+'</button></td><td style="text-align:right">'+(locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
+    return '<tr class="'+(on?"on":"")+'" data-id="'+r.id+'"><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">'+fmt(r.date)+'</button></td><td><button class="link" data-jump="'+r.date+'" data-level="'+r.level+'">L'+r.level+' · '+deskName(r.level,r.desk)+tag+'</button></td><td style="text-align:right">'+(r.pinned?'<span class="hint">Permanent</span>':locked?'<span class="hint">Locked</span>':'<button class="x" data-cancel="'+r.id+'">Cancel</button>')+'</td></tr>';
   }).join("")+"</tbody></table>";
   $("mineTable").querySelectorAll("[data-jump]").forEach(el=>el.onclick=()=>{state.date=el.dataset.jump;state.week=mondayOf(state.date);state.level=Number(el.dataset.level);state.village=null;state.q="";if($("deskQ"))$("deskQ").value="";localStorage.setItem("bragg_level",String(state.level));paint();});
   $("mineTable").querySelectorAll("[data-cancel]").forEach(el=>el.onclick=async()=>{const row=rows.find(r=>r.id===el.dataset.cancel);if(!row||!row.id)return;await cancelRow(row);});
@@ -415,6 +417,7 @@ async function bookDesk(n){
 }
 async function cancelRow(row){
   if(state.busy||!row) return;
+  if(row.pinned||String(row.id||"").indexOf("pin_")==0){$("deskMsg").textContent="That desk is booked permanently.";$("deskMsg").className="msg";return;}
   state.busy=true;
   const out=await api("DELETE","/api/bookings",{id:row.id,hadid:state.hadid,date:row.date,level:row.level,desk:row.desk});
   if(out.ok || out.status===404){
@@ -462,14 +465,15 @@ function paint(){
   $("grid").innerHTML=list.map(n=>{
     const row=by.get(n),v=villageOf(state.level,n);
     const held=deskHeld(state.level,n);
-    const mine=row&&(row.mine||row.hadid===state.hadid);
-    const cls=(held||closed?"past":row?(mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
+    const pinned=!!(row&&row.pinned);
+    const mine=row&&!pinned&&(row.mine||row.hadid===state.hadid);
+    const cls=(held||closed?"past":row?(pinned&&(row.mine||row.hadid===state.hadid)?"mine pinned":pinned?"taken pinned":mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
-    const sub=held?"Out of use":row?(mine?"Yours":("Taken · "+(row.hadid||"Booked"))):(closed?"Closed":"Open");
-    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(held||closed||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
+    const sub=held?"Out of use":row?(pinned?((row.mine||row.hadid===state.hadid)?"Yours · permanent":("Taken · "+(row.hadid||"Booked"))):(mine?"Yours":("Taken · "+(row.hadid||"Booked")))):(closed?"Closed":"Open");
+    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(held||closed||pinned||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
-  $("grid").querySelectorAll(".desk.mine").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id)return;await cancelRow(row);});
+  $("grid").querySelectorAll(".desk.mine:not(.pinned)").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id||row.pinned)return;await cancelRow(row);});
   paintMine();
 }
 async function refresh(){
