@@ -66,6 +66,7 @@ const ROSTER={
   agupta10:1,
   araj06:1,
   asheek01:1,
+  asyed02:1,
   awylli01:1,
   bbroad01:1,
   blowe01:1,
