@@ -86,6 +86,7 @@ const ROSTER = {
   dxie02: 1,
   estamo01: 1,
   eward03: 1,
+  fwilso04: 1,
   gbhask01: 1,
   gkumar01: 1,
   gpopat02: 1,
