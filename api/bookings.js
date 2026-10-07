@@ -296,7 +296,8 @@ async function save(bookings) {
   return store.bookings;
 }
 const PINNED_RULES = [
-  { hadid: "nrashe03", level: 7, desk: 136, dows: [2, 3, 4] }
+  { hadid: "nrashe03", level: 7, desk: 136, dows: [2, 3, 4] },
+  { hadid: "bsimmo01", level: 7, desk: 147, dows: [1, 2, 3, 4, 5], from: "2026-10-09" }
 ];
 function isPinned(row) {
   return !!(row && (row.pinned || String(row.id || "").indexOf("pin_") === 0));
@@ -309,6 +310,7 @@ function pinnedForRange() {
     const dow = new Date(d + "T00:00:00Z").getUTCDay();
     PINNED_RULES.forEach(function (rule) {
       if (rule.dows.indexOf(dow) === -1) return;
+      if (rule.from && d < rule.from) return;
       out.push({
         id: "pin_" + rule.hadid + "_" + rule.desk + "_" + d,
         date: d,
