@@ -14,8 +14,15 @@ const resetBtn = document.getElementById("resetBtn");
 const tip = document.getElementById("tip");
 const countPill = document.getElementById("countPill");
 const DEFAULT_INFO = "<h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p>";
-// Out of use on the plan: ASD WS7.01-22, plus WS7.129 and WS7.130. Keep this in step with deskHeld in api/bookings.js.
-function heldWs(ws){var m=/^WS7\.(\d+)$/.exec(ws||"");if(!m)return false;var n=Number(m[1]);return (n>=1&&n<=22)||n===129||n===130;}
+// Out of use on the plan. The admin list replaces this once it loads.
+let heldLive = null;
+function heldWs(ws){
+  var m=/^WS7\.(\d+)$/.exec(ws||"");
+  if(!m)return false;
+  var n=Number(m[1]);
+  if(Array.isArray(heldLive)) return heldLive.some(function(h){ return Number(h.level)===7 && Number(h.desk)===n; });
+  return (n>=1&&n<=22)||n===129||n===130;
+}
 
 let active = null;
 let desksOn = true;
@@ -146,3 +153,9 @@ viewport.addEventListener("pointerup", () => {
 
 paintOverlay();
 select(null);
+fetch("/api/bookings?meta=1", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (data) {
+  if (data && Array.isArray(data.held)) {
+    heldLive = data.held;
+    paintOverlay();
+  }
+}).catch(function () {});

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bragg · Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Syne:wght@800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#05070c;--cyan:#3ee0c8;--text:#eef6f8;--muted:#8aa0b3;--line:rgba(90,220,200,.18);--panel:rgba(10,20,34,.72);--danger:#ff6b7a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:radial-gradient(900px 500px at 80% -10%,rgba(62,224,200,.12),transparent 55%),#05070c;color:var(--text);font-family:Outfit,system-ui,sans-serif}
+.wrap{width:min(1100px,calc(100% - 24px));margin:0 auto;padding:22px 0 64px}
+.brand{font-family:Syne,sans-serif;font-size:clamp(36px,6vw,60px);line-height:.9;font-weight:800}
+.brand span{color:var(--cyan)}
+.sub{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-size:13px;margin:8px 0 0}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:24px;padding:18px;margin-top:16px}
+h2{font-family:Syne,sans-serif;margin:0 0 6px;font-size:22px}
+p.lead{color:var(--muted);margin:0 0 12px}
+label{display:block;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px}
+input,select{width:100%;border-radius:14px;border:1px solid var(--line);background:rgba(4,8,16,.65);color:var(--text);font:500 16px Outfit,sans-serif;padding:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.row>*{flex:1;min-width:120px}
+.btn{border:0;border-radius:14px;padding:12px 14px;font:700 14px Outfit,sans-serif;background:linear-gradient(180deg,#7cf0de,var(--cyan));color:#05231f;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid rgba(255,107,122,.45)}
+.msg{min-height:1.2em;margin:10px 0 0;color:var(--cyan)}
+.msg.bad{color:var(--danger)}
+.banner{border:1px solid rgba(255,107,122,.45);color:#ffd0d5;border-radius:16px;padding:12px 14px;margin-top:16px}
+.list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin-top:12px}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.item b{font-weight:700}
+.item span{color:var(--muted);font-size:13px}
+.days{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.days label{margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);display:flex;gap:6px;align-items:center}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-end}
+a{color:var(--cyan)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="brand">Bragg <span>admin</span></div>
+      <p class="sub">HADIDs, bookings, standing desks</p>
+    </div>
+    <a href="/">Back to the board</a>
+  </div>
+
+  <section class="panel" id="lock">
+    <h2>PIN</h2>
+    <p class="lead">Same PIN for the team running the board.</p>
+    <label for="pin">Admin PIN</label>
+    <input id="pin" type="password" autocomplete="current-password"/>
+    <button class="btn" id="unlock" type="button" style="margin-top:12px">Open</button>
+    <div class="msg" id="lockMsg"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <div class="banner hidden" id="banner"></div>
+    <div class="msg" id="flash"></div>
+
+    <section class="panel">
+      <h2>HADIDs</h2>
+      <p class="lead">Removing someone cancels their future bookings, including a standing desk.</p>
+      <div class="row">
+        <div><label for="newHadid">Add a HADID</label><input id="newHadid" placeholder="e.g. jsmith01" autocapitalize="off" spellcheck="false"/></div>
+        <div><button class="btn" id="addHadid" type="button">Add</button></div>
+      </div>
+      <label for="findHadid">Find</label>
+      <input id="findHadid" placeholder="Filter the list"/>
+      <div class="list" id="roster"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Book a desk</h2>
+      <p class="lead">Any weekday from today to the end of the pilot. If they already have a desk that day, this moves them.</p>
+      <div class="row">
+        <div><label for="bookHadid">HADID</label><input id="bookHadid" autocapitalize="off" spellcheck="false"/></div>
+        <div><label for="bookDate">Date</label><input id="bookDate" type="date"/></div>
+        <div><label for="bookLevel">Level</label><select id="bookLevel"></select></div>
+        <div><label for="bookDesk">Desk</label><input id="bookDesk" inputmode="numeric" placeholder="42"/></div>
+      </div>
+      <button class="btn" id="doBook" type="button" style="margin-top:12px">Book</button>
+    </section>
+
+    <section class="panel">
+      <h2>Bookings</h2>
+      <p class="lead">Cancel takes the desk off that day. A standing booking stays on its other days.</p>
+      <div class="row">
+        <div><label for="lookDate">One day</label><input id="lookDate" type="date"/></div>
+        <div><button class="btn ghost" id="loadDay" type="button">Show day</button></div>
+        <div><label for="lookPerson">Or one HADID</label><input id="lookPerson" autocapitalize="off" spellcheck="false"/></div>
+        <div><button class="btn ghost" id="loadPerson" type="button">Show person</button></div>
+      </div>
+      <div class="list" id="bookings"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Standing desks</h2>
+      <p class="lead">The same desk, on the weekdays you tick, from the start date through 18 Dec 2026. People cannot cancel these.</p>
+      <div class="row">
+        <div><label for="pinHadid">HADID</label><input id="pinHadid" autocapitalize="off" spellcheck="false"/></div>
+        <div><label for="pinLevel">Level</label><select id="pinLevel"></select></div>
+        <div><label for="pinDesk">Desk</label><input id="pinDesk" inputmode="numeric"/></div>
+        <div><label for="pinFrom">From</label><input id="pinFrom" type="date"/></div>
+      </div>
+      <div class="days" id="pinDays"></div>
+      <button class="btn" id="addPin" type="button" style="margin-top:12px">Set standing booking</button>
+      <div class="list" id="pins"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Out of use</h2>
+      <p class="lead">Nobody can book these. Marking one out of use clears future bookings on it.</p>
+      <div class="row">
+        <div><label for="holdLevel">Level</label><select id="holdLevel"></select></div>
+        <div><label for="holdDesk">Desk</label><input id="holdDesk" inputmode="numeric"/></div>
+        <div><button class="btn" id="doHold" type="button">Mark out of use</button></div>
+      </div>
+      <label for="findHeld">Find</label>
+      <input id="findHeld" placeholder="e.g. 129"/>
+      <div class="list" id="held"></div>
+    </section>
+
+    <button class="btn ghost" id="lockAgain" type="button" style="margin-top:16px">Lock</button>
+  </div>
+</div>
+<script>
+const DOW=[{n:1,t:"Mon"},{n:2,t:"Tue"},{n:3,t:"Wed"},{n:4,t:"Thu"},{n:5,t:"Fri"}];
+const $=id=>document.getElementById(id);
+let state=null;
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&","<":"<",">":">","\"":""","'":"&#39;"}[c]));}
+function pin(){return sessionStorage.getItem("bragg_admin_pin")||"";}
+function flash(text,bad){const el=$("flash");el.textContent=text||"";el.className="msg"+(bad?" bad":"");}
+async function api(path,body){
+  const res=await fetch(path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json","X-Admin-Pin":pin()},body:body?JSON.stringify(body):undefined,cache:"no-store"});
+  let json={};
+  try{json=await res.json();}catch(e){json={ok:false,error:"No response."};}
+  json.status=res.status;
+  return json;
+}
+function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "L"+level+" · "+n;}
+function fillLevels(sel){
+  if(!state)return;
+  sel.innerHTML=state.floors.filter(f=>f.enabled!==false).map(f=>'<option value="'+f.level+'">Level '+f.level+'</option>').join("");
+  sel.value="7";
+}
+function render(){
+  if(!state)return;
+  $("banner").classList.toggle("hidden",!!state.durable);
+  $("banner").textContent=state.durable?"":"These changes are only in the running server. They can disappear on a restart until Redis is set. See the README.";
+  const q=$("findHadid").value.trim().toLowerCase();
+  const people=state.roster.filter(h=>!q||h.indexOf(q)!==-1);
+  $("roster").innerHTML=people.map(h=>'<div class="item"><b>'+esc(h)+'</b><button class="btn danger" data-remove="'+esc(h)+'" type="button">Remove</button></div>').join("")||'<div class="item"><span>No matches.</span></div>';
+  $("roster").querySelectorAll("[data-remove]").forEach(btn=>btn.onclick=()=>removeHadid(btn.dataset.remove));
+  $("pins").innerHTML=(state.pins||[]).map(p=>{
+    const days=DOW.filter(d=>p.dows.indexOf(d.n)!==-1).map(d=>d.t).join(" ");
+    const skips=(p.except||[]).length;
+    return '<div class="item"><div><b>'+esc(p.hadid)+'</b> <span>'+esc(deskName(p.level,p.desk))+' · '+esc(days)+' · from '+esc(p.from)+(skips?" · "+skips+" day"+(skips===1?"":"s")+" skipped":"")+'</span></div><button class="btn danger" data-unpin="'+esc(p.id)+'" type="button">Remove</button></div>';
+  }).join("")||'<div class="item"><span>No standing bookings.</span></div>';
+  $("pins").querySelectorAll("[data-unpin]").forEach(btn=>btn.onclick=()=>run({adminOp:"remove-pin",id:btn.dataset.unpin}));
+  const hq=$("findHeld").value.trim();
+  const held=(state.held||[]).filter(h=>!hq||String(h.desk).indexOf(hq)!==-1||deskName(h.level,h.desk).toLowerCase().indexOf(hq.toLowerCase())!==-1);
+  $("held").innerHTML=held.map(h=>'<div class="item"><b>'+esc(deskName(h.level,h.desk))+'</b><button class="btn ghost" data-release="'+h.level+'|'+h.desk+'" type="button">Put back</button></div>').join("")||'<div class="item"><span>None.</span></div>';
+  $("held").querySelectorAll("[data-release]").forEach(btn=>btn.onclick=()=>{const p=btn.dataset.release.split("|");run({adminOp:"release",level:Number(p[0]),desk:Number(p[1])});});
+}
+async function unlock(){
+  sessionStorage.setItem("bragg_admin_pin",$("pin").value.trim());
+  const data=await api("/api/bookings?admin=1");
+  if(!data.ok){$("lockMsg").textContent=data.error||"Wrong PIN.";$("lockMsg").className="msg bad";sessionStorage.removeItem("bragg_admin_pin");return;}
+  state=data;
+  $("lock").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  fillLevels($("bookLevel"));fillLevels($("pinLevel"));fillLevels($("holdLevel"));
+  const today=data.today;
+  $("bookDate").value=today;$("bookDate").min=today;$("bookDate").max=data.end;
+  $("lookDate").value=today;$("pinFrom").value=today;$("pinFrom").min=today;$("pinFrom").max=data.end;
+  render();
+  loadDay();
+}
+async function run(body){
+  flash("Saving…");
+  const data=await api("/api/bookings",body);
+  if(!data.ok){flash(data.error||"That did not save.",true);return;}
+  state=data;
+  render();
+  flash(data.message||"Saved.");
+}
+async function removeHadid(hid){
+  if(!confirm("Remove "+hid+" and cancel their future bookings?"))return;
+  await run({adminOp:"remove-hadid",hadid:hid});
+}
+function showBookings(rows,empty){
+  $("bookings").innerHTML=(rows||[]).map(r=>'<div class="item"><div><b>'+esc(r.hadid)+'</b> <span>'+esc(r.date)+' · '+esc(deskName(r.level,r.desk))+(r.pinned?" · standing":"")+'</span></div><button class="btn danger" data-cancel="'+esc(r.id)+'" type="button">Cancel</button></div>').join("")||'<div class="item"><span>'+empty+'</span></div>';
+  $("bookings").querySelectorAll("[data-cancel]").forEach(btn=>btn.onclick=async()=>{
+    const row=(rows||[]).find(r=>r.id===btn.dataset.cancel);
+    const q=row&&row.pinned?"Skip this one day? The standing booking stays on the other days.":"Cancel this booking?";
+    if(!confirm(q))return;
+    await run({adminOp:"cancel",id:btn.dataset.cancel});
+    if($("lookPerson").value.trim()) loadPerson(); else loadDay();
+  });
+}
+async function loadDay(){
+  const date=$("lookDate").value;
+  const data=await api("/api/bookings?all=1&date="+encodeURIComponent(date));
+  if(!data.ok){flash(data.error||"Could not load that day.",true);return;}
+  showBookings(data.bookings,"Nothing booked that day.");
+}
+async function loadPerson(){
+  const hid=$("lookPerson").value.trim().toLowerCase();
+  if(!hid){flash("Enter a HADID.",true);return;}
+  const data=await api("/api/bookings?all=1&person="+encodeURIComponent(hid));
+  if(!data.ok){flash(data.error||"Could not load that person.",true);return;}
+  const today=state?state.today:"";
+  showBookings((data.bookings||[]).filter(r=>r.date>=today),"No future bookings for "+hid+".");
+}
+$("pinDays").innerHTML=DOW.map(d=>'<label><input type="checkbox" value="'+d.n+'"/> '+d.t+'</label>').join("");
+$("unlock").onclick=unlock;
+$("pin").addEventListener("keydown",e=>{if(e.key==="Enter")unlock();});
+$("addHadid").onclick=()=>run({adminOp:"add-hadid",hadid:$("newHadid").value}).then(()=>{$("newHadid").value="";});
+$("findHadid").oninput=render;
+$("findHeld").oninput=render;
+$("doBook").onclick=()=>run({adminOp:"book",hadid:$("bookHadid").value,date:$("bookDate").value,level:Number($("bookLevel").value),desk:Number($("bookDesk").value)});
+$("loadDay").onclick=loadDay;
+$("loadPerson").onclick=loadPerson;
+$("addPin").onclick=()=>{
+  const dows=[...$("pinDays").querySelectorAll("input:checked")].map(el=>Number(el.value));
+  run({adminOp:"add-pin",hadid:$("pinHadid").value,level:Number($("pinLevel").value),desk:Number($("pinDesk").value),from:$("pinFrom").value,dows:dows});
+};
+$("doHold").onclick=()=>run({adminOp:"hold",level:Number($("holdLevel").value),desk:Number($("holdDesk").value)});
+$("lockAgain").onclick=()=>{sessionStorage.removeItem("bragg_admin_pin");location.reload();};
+if(pin())$("pin").value=pin();
+</script>
+</body>
+</html>

@@ -8,9 +8,9 @@
 // ROSTER is repeated in book.js so the page can reject a bad HADID immediately.
 // Change both lists. The server is the check that counts.
 //
-// PINNED_RULES are standing bookings. They are rebuilt on every read and
-// cannot be cancelled. dows is 0 Sunday through 6 Saturday. from is the first day.
-// deskHeld blocks WS7.01-22 and HELD_DESKS. Those desks are out of use.
+// PINNED_RULES and HELD_DESKS below are only the starting set. The admin
+// screen saves the live list, standing desks and out-of-use desks with the
+// bookings. A cold start uses those saved values when Redis is configured.
 const ADMIN_PIN = "2109";
 const START = "2026-09-21";
 const END = "2026-12-18";
@@ -254,27 +254,44 @@ function mergeBookings(base, incoming, tombs) {
     return a.date.localeCompare(b.date) || a.level - b.level || a.desk - b.desk;
   });
 }
+function kvEnv() {
+  return {
+    url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "",
+    token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || ""
+  };
+}
+function snapshot(store) {
+  return {
+    initialised: true,
+    updatedAt: new Date().toISOString(),
+    bookings: store.bookings,
+    tombs: store.tombs,
+    roster: store.roster || null,
+    pins: store.pins || null,
+    held: store.held || null
+  };
+}
 async function persistRemote(store) {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
-  if (!url || !token) return;
+  const kv = kvEnv();
+  if (!kv.url || !kv.token) return false;
   try {
-    await fetch(url.replace(/\/$/, "") + "/set/" + encodeURIComponent(BOOKINGS_KEY), {
+    await fetch(kv.url.replace(/\/$/, "") + "/set/" + encodeURIComponent(BOOKINGS_KEY), {
       method: "POST",
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({ initialised: true, updatedAt: new Date().toISOString(), bookings: store.bookings, tombs: store.tombs })
+      headers: { Authorization: "Bearer " + kv.token, "Content-Type": "application/json" },
+      body: JSON.stringify(snapshot(store))
     });
+    return true;
   } catch (e) {
     console.error("kv_save", e);
+    return false;
   }
 }
 async function loadRemote() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
-  if (!url || !token) return null;
+  const kv = kvEnv();
+  if (!kv.url || !kv.token) return null;
   try {
-    const res = await fetch(url.replace(/\/$/, "") + "/get/" + encodeURIComponent(BOOKINGS_KEY), {
-      headers: { Authorization: "Bearer " + token }
+    const res = await fetch(kv.url.replace(/\/$/, "") + "/get/" + encodeURIComponent(BOOKINGS_KEY), {
+      headers: { Authorization: "Bearer " + kv.token }
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -284,7 +301,10 @@ async function loadRemote() {
     if (Array.isArray(parsed)) return { bookings: parsed, tombs: Object.create(null) };
     return {
       bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
-      tombs: parsed.tombs && typeof parsed.tombs === "object" ? parsed.tombs : Object.create(null)
+      tombs: parsed.tombs && typeof parsed.tombs === "object" ? parsed.tombs : Object.create(null),
+      roster: parsed.roster && typeof parsed.roster === "object" && !Array.isArray(parsed.roster) ? parsed.roster : null,
+      pins: Array.isArray(parsed.pins) ? parsed.pins : null,
+      held: Array.isArray(parsed.held) ? parsed.held : null
     };
   } catch (e) {
     console.error("kv_load", e);
@@ -297,13 +317,18 @@ async function load() {
   const remote = await loadRemote();
   if (remote) {
     store.tombs = Object.assign(Object.create(null), store.tombs, remote.tombs);
+    if (remote.roster) store.roster = remote.roster;
+    if (remote.pins) store.pins = remote.pins.map(cleanRule).filter(Boolean);
+    if (remote.held) store.held = dedupeHeld(remote.held);
     store.bookings = mergeBookings(store.bookings, remote.bookings, store.tombs);
   }
+  ensureConfig(store);
   store.bookings = applyPinned(mergeBookings(store.bookings, [], store.tombs));
   return store.bookings;
 }
 async function save(bookings) {
   const store = g.__braggStore__;
+  ensureConfig(store);
   store.bookings = applyPinned(mergeBookings(bookings || [], [], store.tombs));
   await persistRemote(store);
   return store.bookings;
@@ -312,18 +337,75 @@ const PINNED_RULES = [
   { hadid: "nrashe03", level: 7, desk: 136, dows: [2, 3, 4] },
   { hadid: "bsimmo01", level: 7, desk: 147, dows: [1, 2, 3, 4, 5], from: "2026-10-09" }
 ];
+function cleanRule(raw) {
+  if (!raw) return null;
+  const hadid = hadidOf(raw.hadid);
+  const level = Number(raw.level);
+  const desk = Number(raw.desk);
+  const seen = Object.create(null);
+  const dows = (Array.isArray(raw.dows) ? raw.dows : []).map(Number).filter(function (n) {
+    if (n < 1 || n > 5 || seen[n]) return false;
+    seen[n] = 1;
+    return true;
+  }).sort();
+  if (!hadid || !level || !desk || !dows.length) return null;
+  const except = (Array.isArray(raw.except) ? raw.except : []).map(String).filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); });
+  return {
+    id: String(raw.id || ("rule_" + hadid + "_" + level + "_" + desk)),
+    hadid: hadid,
+    level: level,
+    desk: desk,
+    dows: dows,
+    from: /^\d{4}-\d{2}-\d{2}$/.test(String(raw.from || "")) ? String(raw.from) : START,
+    until: /^\d{4}-\d{2}-\d{2}$/.test(String(raw.until || "")) ? String(raw.until) : END,
+    except: except
+  };
+}
+function dedupeHeld(list) {
+  const seen = Object.create(null);
+  const out = [];
+  (list || []).forEach(function (h) {
+    const level = Number(h && h.level);
+    const desk = Number(h && h.desk);
+    if (!level || !desk) return;
+    const key = level + "|" + desk;
+    if (seen[key]) return;
+    seen[key] = 1;
+    out.push({ level: level, desk: desk });
+  });
+  out.sort(function (a, b) { return a.level - b.level || a.desk - b.desk; });
+  return out;
+}
+function ensureConfig(store) {
+  if (!store.roster || typeof store.roster !== "object" || Array.isArray(store.roster)) {
+    store.roster = Object.create(null);
+    Object.keys(ROSTER).forEach(function (k) { store.roster[k] = 1; });
+  }
+  if (!Array.isArray(store.pins)) store.pins = PINNED_RULES.map(cleanRule).filter(Boolean);
+  if (!Array.isArray(store.held)) {
+    const held = [];
+    let d = 1;
+    for (; d <= 22; d += 1) held.push({ level: 7, desk: d });
+    HELD_DESKS.forEach(function (h) { held.push(h); });
+    store.held = dedupeHeld(held);
+  }
+}
 function isPinned(row) {
   return !!(row && (row.pinned || String(row.id || "").indexOf("pin_") === 0));
 }
 function pinnedForRange() {
   const out = [];
+  const store = g.__braggStore__;
+  const rules = store && Array.isArray(store.pins) ? store.pins : PINNED_RULES;
   let d = today();
   if (d < START) d = START;
   while (d <= END) {
     const dow = new Date(d + "T00:00:00Z").getUTCDay();
-    PINNED_RULES.forEach(function (rule) {
-      if (rule.dows.indexOf(dow) === -1) return;
+    rules.forEach(function (rule) {
+      if (!rule || !Array.isArray(rule.dows) || rule.dows.indexOf(dow) === -1) return;
       if (rule.from && d < rule.from) return;
+      if (rule.until && d > rule.until) return;
+      if (Array.isArray(rule.except) && rule.except.indexOf(d) !== -1) return;
       out.push({
         id: "pin_" + rule.hadid + "_" + rule.desk + "_" + d,
         date: d,
@@ -397,11 +479,17 @@ function parseUrl(req) {
 }
 function auth(req) { return { admin: header(req, "x-admin-pin").trim() === ADMIN_PIN }; }
 function hadidOf(v) { return String(v || "").trim().toLowerCase(); }
-function rosterOf(hid) { return ROSTER[hid] || null; }
+function rosterOf(hid) {
+  const roster = g.__braggStore__ && g.__braggStore__.roster;
+  if (roster) return roster[hid] ? 1 : null;
+  return ROSTER[hid] || null;
+}
 function floorOf(level) { return FLOORS.find(function (f) { return f.level === Number(level); }); }
 function deskHeld(level, desk) {
   level = Number(level);
   desk = Number(desk);
+  const held = g.__braggStore__ && g.__braggStore__.held;
+  if (Array.isArray(held)) return held.some(function (h) { return Number(h.level) === level && Number(h.desk) === desk; });
   if (level === 7 && desk >= 1 && desk <= 22) return true;
   return HELD_DESKS.some(function (h) { return h.level === level && h.desk === desk; });
 }
@@ -446,6 +534,150 @@ function readBody(req) {
     req.on("error", reject);
   });
 }
+function adminState(message) {
+  const store = g.__braggStore__;
+  const kv = kvEnv();
+  return {
+    ok: true,
+    message: message || "",
+    today: today(),
+    start: START,
+    end: END,
+    floors: FLOORS,
+    roster: Object.keys(store.roster).sort(),
+    pins: store.pins,
+    held: store.held,
+    durable: !!(kv.url && kv.token)
+  };
+}
+function validHadid(hid) { return /^[a-z0-9]{2,16}$/.test(hid); }
+function exceptPin(hadid, level, desk, date) {
+  const rule = (g.__braggStore__.pins || []).find(function (p) {
+    return p.hadid === hadid && Number(p.level) === Number(level) && Number(p.desk) === Number(desk);
+  });
+  if (!rule) return false;
+  if (!Array.isArray(rule.except)) rule.except = [];
+  if (rule.except.indexOf(date) === -1) rule.except.push(date);
+  return true;
+}
+async function adminHandle(res, body) {
+  const op = String(body.adminOp || "");
+  const store = g.__braggStore__;
+  await load();
+  if (op === "add-hadid") {
+    const hid = hadidOf(body.hadid);
+    if (!validHadid(hid)) return send(res, 400, { ok: false, error: "HADID should be 2 to 16 letters or numbers." });
+    if (store.roster[hid]) return send(res, 409, { ok: false, error: hid + " is already on the list." });
+    store.roster[hid] = 1;
+    await save(store.bookings);
+    return send(res, 200, adminState("Added " + hid + "."));
+  }
+  if (op === "remove-hadid") {
+    const hid = hadidOf(body.hadid);
+    if (!store.roster[hid]) return send(res, 404, { ok: false, error: "That HADID is not on the list." });
+    delete store.roster[hid];
+    store.pins = store.pins.filter(function (p) { return p.hadid !== hid; });
+    const day = today();
+    const drop = store.bookings.filter(function (r) { return r.hadid === hid && r.date >= day && !isPinned(r); });
+    drop.forEach(function (r) { tombstone(r.id, r); });
+    const gone = Object.create(null);
+    drop.forEach(function (r) { gone[r.id] = 1; });
+    await save(store.bookings.filter(function (r) { return !gone[r.id]; }));
+    return send(res, 200, adminState("Removed " + hid + " and cleared " + drop.length + " future booking" + (drop.length === 1 ? "" : "s") + "."));
+  }
+  if (op === "book") {
+    const hid = hadidOf(body.hadid);
+    const date = String(body.date || "");
+    const level = Number(body.level);
+    const desk = Number(body.desk);
+    const floor = floorOf(level);
+    const dow = new Date(date + "T00:00:00Z").getUTCDay();
+    const day = today();
+    if (!rosterOf(hid)) return send(res, 403, { ok: false, error: "That HADID is not on the list." });
+    if (!(date >= day) || date > END || dow === 0 || dow === 6) return send(res, 400, { ok: false, error: "Pick a weekday from today through " + END + "." });
+    if (!floor || floor.enabled === false || !(desk >= 1) || desk > floor.desks) return send(res, 400, { ok: false, error: floor && floor.enabled === false ? "That level is not in use." : "That desk does not exist." });
+    if (deskHeld(level, desk)) return send(res, 400, { ok: false, error: "That desk is out of use." });
+    let rows = await load();
+    const taken = rows.find(function (r) { return r.date === date && r.level === level && r.desk === desk && r.hadid !== hid; });
+    if (taken) return send(res, 409, { ok: false, error: deskName(level, desk) + " is already taken by " + taken.hadid + "." });
+    const mine = rows.find(function (r) { return r.hadid === hid && r.date === date; });
+    if (mine && mine.level === level && mine.desk === desk) return send(res, 200, adminState(hid + " already has " + deskName(level, desk) + " that day."));
+    if (mine && isPinned(mine)) exceptPin(mine.hadid, mine.level, mine.desk, mine.date);
+    if (mine && !isPinned(mine)) tombstone(mine.id);
+    rows = rows.filter(function (r) { return !(mine && r.id === mine.id); });
+    const booking = { id: nid(), date: date, level: level, desk: desk, hadid: hid, createdAt: new Date().toISOString() };
+    rows.push(booking);
+    const kept = (await save(rows)).find(function (r) { return r.id === booking.id; });
+    if (!kept) return send(res, 409, { ok: false, error: "That desk is already taken." });
+    const moved = mine ? " Moved off " + deskName(mine.level, mine.desk) + "." : "";
+    return send(res, 200, adminState("Booked " + deskName(level, desk) + " for " + hid + " on " + date + "." + moved));
+  }
+  if (op === "cancel") {
+    const id = String(body.id || "");
+    const rows = await load();
+    const row = rows.find(function (r) { return r.id === id; });
+    if (!row) return send(res, 404, { ok: false, error: "That booking is already gone." });
+    if (row.date < today()) return send(res, 409, { ok: false, error: "That day has already happened." });
+    if (isPinned(row)) {
+      if (!exceptPin(row.hadid, row.level, row.desk, row.date)) return send(res, 409, { ok: false, error: "Could not skip that standing day." });
+      await save(store.bookings);
+      return send(res, 200, adminState("Skipped " + row.date + " for " + row.hadid + ". The standing booking stays on the other days."));
+    }
+    tombstone(row.id, row);
+    await save(rows.filter(function (r) { return r.id !== row.id; }));
+    return send(res, 200, adminState("Cancelled " + deskName(row.level, row.desk) + " for " + row.hadid + " on " + row.date + "."));
+  }
+  if (op === "add-pin") {
+    const rule = cleanRule({
+      hadid: body.hadid,
+      level: body.level,
+      desk: body.desk,
+      dows: body.dows,
+      from: body.from || today(),
+      until: END,
+      except: []
+    });
+    if (!rule) return send(res, 400, { ok: false, error: "Need a HADID, a desk and at least one weekday." });
+    if (rule.from < today()) rule.from = today();
+    if (!rosterOf(rule.hadid)) return send(res, 403, { ok: false, error: "That HADID is not on the list." });
+    const floor = floorOf(rule.level);
+    if (!floor || floor.enabled === false || rule.desk < 1 || rule.desk > floor.desks) return send(res, 400, { ok: false, error: "That desk does not exist." });
+    if (deskHeld(rule.level, rule.desk)) return send(res, 400, { ok: false, error: "That desk is out of use." });
+    if (store.pins.some(function (p) { return p.level === rule.level && p.desk === rule.desk; })) return send(res, 409, { ok: false, error: deskName(rule.level, rule.desk) + " already has a standing booking." });
+    store.pins.push(rule);
+    await save(store.bookings);
+    return send(res, 200, adminState("Standing booking set for " + rule.hadid + " on " + deskName(rule.level, rule.desk) + "."));
+  }
+  if (op === "remove-pin") {
+    const id = String(body.id || "");
+    const before = store.pins.length;
+    store.pins = store.pins.filter(function (p) { return p.id !== id; });
+    if (store.pins.length === before) return send(res, 404, { ok: false, error: "That standing booking is already gone." });
+    await save(store.bookings);
+    return send(res, 200, adminState("Removed that standing booking."));
+  }
+  if (op === "hold" || op === "release") {
+    const level = Number(body.level);
+    const desk = Number(body.desk);
+    const floor = floorOf(level);
+    if (!floor || !(desk >= 1) || desk > floor.desks) return send(res, 400, { ok: false, error: "That desk does not exist." });
+    if (op === "release") {
+      store.held = store.held.filter(function (h) { return !(h.level === level && h.desk === desk); });
+      await save(store.bookings);
+      return send(res, 200, adminState(deskName(level, desk) + " can be booked again."));
+    }
+    if (!deskHeld(level, desk)) store.held = dedupeHeld(store.held.concat([{ level: level, desk: desk }]));
+    store.pins = store.pins.filter(function (p) { return !(p.level === level && p.desk === desk); });
+    const day = today();
+    const drop = store.bookings.filter(function (r) { return r.level === level && r.desk === desk && r.date >= day && !isPinned(r); });
+    drop.forEach(function (r) { tombstone(r.id, r); });
+    const gone = Object.create(null);
+    drop.forEach(function (r) { gone[r.id] = 1; });
+    await save(store.bookings.filter(function (r) { return !gone[r.id]; }));
+    return send(res, 200, adminState(deskName(level, desk) + " is out of use. Cleared " + drop.length + " future booking" + (drop.length === 1 ? "" : "s") + "."));
+  }
+  return send(res, 400, { ok: false, error: "Unknown admin action." });
+}
 module.exports = async function handler(req, res) {
   try {
     if (!res || typeof res.setHeader !== "function") return;
@@ -453,9 +685,17 @@ module.exports = async function handler(req, res) {
     const url = parseUrl(req);
     const who = auth(req);
     if (req.method === "GET" && url.searchParams.get("meta") === "1") {
-      return send(res, 200, { ok: true, start: START, end: END, floors: FLOORS, today: today(), horizon: bookHorizon(), advanceDays: ADVANCE_DAYS, rosterCount: Object.keys(ROSTER).length });
+      await load();
+      const store = g.__braggStore__;
+      return send(res, 200, { ok: true, start: START, end: END, floors: FLOORS, today: today(), horizon: bookHorizon(), advanceDays: ADVANCE_DAYS, rosterCount: Object.keys(store.roster).length, held: store.held });
+    }
+    if (req.method === "GET" && url.searchParams.get("admin") === "1") {
+      if (!who.admin) return send(res, 403, { ok: false, error: "Wrong PIN." });
+      await load();
+      return send(res, 200, adminState());
     }
     if (req.method === "GET" && url.searchParams.get("who") === "1") {
+      await load();
       const hid = hadidOf(url.searchParams.get("hadid"));
       const person = rosterOf(hid);
       if (!person) return send(res, 403, { ok: false, error: "That HADID is not on the Bragg pilot list." });
@@ -469,12 +709,19 @@ module.exports = async function handler(req, res) {
       if (all && !who.admin) return send(res, 403, { ok: false, error: "Admin only." });
       let out = rows;
       if (date) out = out.filter(function (r) { return r.date === date; });
+      const person = who.admin ? hadidOf(url.searchParams.get("person")) : "";
+      if (person) out = out.filter(function (r) { return r.hadid === person; });
       if (hadid && url.searchParams.get("mine") === "1") out = out.filter(function (r) { return r.hadid === hadid; });
       out.sort(function (a, b) { return a.date.localeCompare(b.date) || a.level - b.level || a.desk - b.desk; });
       return send(res, 200, { ok: true, today: today(), shared: true, bookings: out.map(function (r) { return pub(r, hadid, all && who.admin); }) });
     }
     if (req.method === "POST") {
       const body = await readBody(req);
+      if (body && body.adminOp) {
+        if (!who.admin) return send(res, 403, { ok: false, error: "Wrong PIN." });
+        return adminHandle(res, body);
+      }
+      await load();
       if (body && body.wipe && who.admin) {
         g.__braggStore__.bookings = [];
         g.__braggStore__.tombs = Object.create(null);
@@ -548,6 +795,7 @@ module.exports = async function handler(req, res) {
     }
     if (req.method === "DELETE") {
       const body = await readBody(req);
+      await load();
       const hid = hadidOf(body.hadid);
       const id = String(body.id || "");
       const date = String(body.date || "");

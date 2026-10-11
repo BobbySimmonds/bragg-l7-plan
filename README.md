@@ -54,16 +54,34 @@ The board is one page. `index.html` is the layout. `book.js` is the behaviour. `
 
 | Change | Edit |
 | --- | --- |
-| Who can log in | `ROSTER` in `api/bookings.js` and the same list in `book.js`. The footer count is the length of that list. |
+| Who can log in | The admin screen. `ROSTER` in `api/bookings.js` is only the starting list. |
 | Pilot dates and how far ahead | `START`, `END` and `ADVANCE_DAYS` in `api/bookings.js`. The page has its own copy: `START`, `END` and `ADVANCE` at the top of `book.js`. |
-| Permanent desks | `PINNED_RULES` in `api/bookings.js`. `dows` is 0 Sunday through 6 Saturday. `from` is the first date. |
-| Desks that stay out of use | `HELD_DESKS` and the WS7.01–22 check in `deskHeld()` in `api/bookings.js`, and `HELD` plus `deskHeld()` in `book.js`. The plan uses `heldWs()` in `map.js`. |
+| Permanent desks | The admin screen. `PINNED_RULES` in `api/bookings.js` is only the starting set. |
+| Desks that stay out of use | The admin screen. The starting set is WS7.01–22, WS7.129 and WS7.130. |
 | Levels on or off | `FLOORS` in `api/bookings.js` and in `book.js`. |
 | Village split on level 7 | `L7_VILLAGES` in `book.js`. Colours on the plan are in `map.js`. |
 | Admin override | `ADMIN_PIN` at the top of `api/bookings.js`. Send it as the `X-Admin-Pin` header. Change this before the repo goes to anyone who should not have it. It is in the source today. |
 
+## Admin
+
+Open `/admin` on the same site. The PIN is `ADMIN_PIN` at the top of `api/bookings.js`. Change that before you hand the repo on.
+
+From that screen you can:
+
+- Add a HADID, or remove one. Removing someone cancels their future bookings and their standing desk.
+- Book a desk for someone, on any weekday from today through the end of the pilot. The 7-weekday limit does not apply here. If they already have a desk that day, they are moved.
+- Cancel a booking. Cancelling one day of a standing booking skips that day only.
+- Set or remove a standing booking.
+- Mark a desk out of use, or put it back. Marking it out of use clears future bookings on it.
+
+The public booking page reads the live list. Someone you add can sign in without a new deploy. Someone you remove is signed out on their next refresh.
+
+These edits are stored with the bookings. Without the Redis variables they live in the running server only, and the admin screen says so.
+
 ## Pages
 
 - `/` booking board (`index.html`)
+- `/admin` the management screen (`admin.html`)
 - `/go` and `/pilot` same board
 - `/map` floor plan
+

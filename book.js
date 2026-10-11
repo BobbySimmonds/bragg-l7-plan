@@ -185,7 +185,7 @@ const state={
   hadid:(localStorage.getItem("bragg_hadid")||"").toLowerCase(),
   name:localStorage.getItem("bragg_name")||"",
   date:START,week:START,level:(function(){const n=Number(localStorage.getItem("bragg_level")||7);return n===6||n===8?7:n;})(),
-  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false,busy:false,tombs:loadTombs()
+  cache:[],today:new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Adelaide"}),q:"",village:null,live:false,busy:false,tombs:loadTombs(),held:null
 };
 try{
   const saved=JSON.parse(localStorage.getItem("bragg_bookings")||"[]");
@@ -214,7 +214,7 @@ function persistCache(){
 }
 function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).sort((a,b)=>a.date.localeCompare(b.date)||a.level-b.level||a.desk-b.desk)}
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
-function deskHeld(level,desk){level=Number(level);desk=Number(desk);if(level===7&&desk>=1&&desk<=22)return true;return HELD.some(h=>h.level===level&&h.desk===desk)}
+function deskHeld(level,desk){level=Number(level);desk=Number(desk);if(Array.isArray(state.held))return state.held.some(h=>Number(h.level)===level&&Number(h.desk)===desk);if(level===7&&desk>=1&&desk<=22)return true;return HELD.some(h=>h.level===level&&h.desk===desk)}
 function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
@@ -364,6 +364,17 @@ function paint(){
   paintMine();
 }
 async function refresh(){
+  if(state.hadid){
+    const who=await api("GET","/api/bookings?who=1&hadid="+encodeURIComponent(state.hadid));
+    if(who&&who.status===403){
+      state.hadid="";
+      localStorage.removeItem("bragg_hadid");
+      leaveBook();
+      $("whoMsg").textContent="That HADID is no longer on the list.";
+      paint();
+      return;
+    }
+  }
   const data=await api("GET","/api/bookings?hadid="+encodeURIComponent(state.hadid));
   if(data.ok){
     state.live=true;
@@ -382,10 +393,16 @@ async function refresh(){
   if(data.today) state.today=data.today;
 }
 function bootWeek(){const open=mondayOf(state.today>START?state.today:START);const w=clampWeek(weekHasOpen(open)?open:addDays(open,7));state.week=w;state.date=firstOpen(w);}
-function signIn(hadid){
+async function signIn(hadid){
   const id=String(hadid||"").trim().toLowerCase();
   if(!id){$("whoMsg").textContent="Enter your HADID.";return false;}
-  if(!rosterName(id)){$("whoMsg").textContent="That HADID is not on the Bragg pilot list.";return false;}
+  const who=await api("GET","/api/bookings?who=1&hadid="+encodeURIComponent(id));
+  const allowed=who&&who.ok?true:(who&&who.status===403?false:!!rosterName(id));
+  if(!allowed){
+    if(who&&who.status===403){localStorage.removeItem("bragg_hadid");if(state.hadid===id)state.hadid="";}
+    $("whoMsg").textContent=(who&&who.error)||"That HADID is not on the Bragg pilot list.";
+    return false;
+  }
   state.hadid=id;state.name="";
   localStorage.setItem("bragg_hadid",id);
   localStorage.removeItem("bragg_name");
@@ -402,16 +419,22 @@ $("nextWeek").onclick=()=>{const next=addDays(state.week,7);if(!weekHasOpen(next
 if($("deskQ")) $("deskQ").oninput=()=>{state.q=$("deskQ").value;paint();};
 $("hadid").value=state.hadid;
 bootWeek();
-if(state.hadid && rosterName(state.hadid)){
-  enterBook();
-  refresh().then(paint);
-}else{
-  paint();
+async function loadMeta(){
+  const data=await api("GET","/api/bookings?meta=1");
+  if(data&&Array.isArray(data.held)) state.held=data.held;
+  const note=document.getElementById("footNote");
+  if(note) note.textContent="Pilot for the Bragg Centre move · "+(data&&data.rosterCount?data.rosterCount:Object.keys(ROSTER).length)+" HADIDs on this list. Not an official SA Health system.";
 }
-setInterval(function(){ if(state.hadid && rosterName(state.hadid)) refresh().then(paint); }, 15000);
+loadMeta().then(function(){
+  if(state.hadid){
+    return signIn(state.hadid);
+  }
+  paint();
+});
+setInterval(function(){ if(state.hadid) refresh().then(paint); }, 15000);
 document.addEventListener("visibilitychange", function(){
-  if(document.visibilityState==="visible" && state.hadid && rosterName(state.hadid)) refresh().then(paint);
+  if(document.visibilityState==="visible" && state.hadid) refresh().then(paint);
 });
 
-var foot=document.querySelector("footer");
-if(foot) foot.textContent="Pilot for the Bragg Centre move · "+Object.keys(ROSTER).length+" HADIDs on this list. Not an official SA Health system.";
+var foot=document.getElementById("footNote");
+if(foot && !foot.textContent) foot.textContent="Pilot for the Bragg Centre move · "+Object.keys(ROSTER).length+" HADIDs on this list. Not an official SA Health system.";
