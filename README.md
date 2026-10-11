@@ -50,16 +50,16 @@ Use the `bookings` array only. Leave out the export wrapper (`exportedAt`, `note
 
 ## Where to change things
 
-The pages do not share one script. `index.html` and `go.html` are full copies. `go.html` is what `/go` used to be; both are the same board now. Change both, or they drift. `book.js` is an old copy of that script. The pages do not load it.
+The board is one page. `index.html` is the layout. `book.js` is the behaviour. `/go` and `/pilot` open that same page. `go.html` only sends old links back to `/`.
 
 | Change | Edit |
 | --- | --- |
-| Who can log in | `ROSTER` in `api/bookings.js`, and the same list inside `index.html` and `go.html`. The footer count is typed by hand. |
-| Pilot dates and how far ahead | `START`, `END`, `ADVANCE_DAYS` at the top of `api/bookings.js`. The page has its own copy of the 7-weekday limit. Search `ADVANCE` in the HTML. |
+| Who can log in | `ROSTER` in `api/bookings.js` and the same list in `book.js`. The footer count is the length of that list. |
+| Pilot dates and how far ahead | `START`, `END` and `ADVANCE_DAYS` in `api/bookings.js`. The page has its own copy: `START`, `END` and `ADVANCE` at the top of `book.js`. |
 | Permanent desks | `PINNED_RULES` in `api/bookings.js`. `dows` is 0 Sunday through 6 Saturday. `from` is the first date. |
-| Desks that stay out of use | `HELD_DESKS` and the WS7.01–22 check in `deskHeld()` in `api/bookings.js`, `index.html` and `go.html`. The plan uses `heldWs()` in `map.js`. |
-| Levels on or off | `FLOORS` in `api/bookings.js`. The level buttons are in the HTML. |
-| Village split on level 7 | `L7_VILLAGES` in the HTML. Colours on the plan are in `map.js`. |
+| Desks that stay out of use | `HELD_DESKS` and the WS7.01–22 check in `deskHeld()` in `api/bookings.js`, and `HELD` plus `deskHeld()` in `book.js`. The plan uses `heldWs()` in `map.js`. |
+| Levels on or off | `FLOORS` in `api/bookings.js` and in `book.js`. |
+| Village split on level 7 | `L7_VILLAGES` in `book.js`. Colours on the plan are in `map.js`. |
 | Admin override | `ADMIN_PIN` at the top of `api/bookings.js`. Send it as the `X-Admin-Pin` header. Change this before the repo goes to anyone who should not have it. It is in the source today. |
 
 ## Pages

@@ -1,3 +1,9 @@
+// Booking board for the Bragg Centre pilot. index.html loads this file.
+// /go and /pilot open the same page.
+//
+// ROSTER has to match the list in api/bookings.js. The page uses it to
+// reject an unknown HADID straight away. The server is the check that counts.
+// Desks WS7.01-22 and the HELD list are out of use. The server blocks those too.
 const START="2026-09-21",END="2026-12-18",ADVANCE=7;
 const FLOORS=[
   {level:5,desks:32,note:"Temporary overflow"},
@@ -406,3 +412,6 @@ setInterval(function(){ if(state.hadid && rosterName(state.hadid)) refresh().the
 document.addEventListener("visibilitychange", function(){
   if(document.visibilityState==="visible" && state.hadid && rosterName(state.hadid)) refresh().then(paint);
 });
+
+var foot=document.querySelector("footer");
+if(foot) foot.textContent="Pilot for the Bragg Centre move · "+Object.keys(ROSTER).length+" HADIDs on this list. Not an official SA Health system.";

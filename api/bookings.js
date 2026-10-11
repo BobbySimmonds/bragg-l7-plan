@@ -1,3 +1,16 @@
+// Bragg desk booking API. No build step. Vercel runs this as /api/bookings.
+//
+// Bookings live in this process, and in Redis when KV_REST_API_URL and
+// KV_REST_API_TOKEN are set (UPSTASH_REDIS_REST_URL / _TOKEN also work).
+// The key is bragg:bookings. Without Redis, a cold start only has BOOTSTRAP
+// plus the permanent rules. Do not delete BOOTSTRAP unless Redis is in use.
+//
+// ROSTER is repeated in book.js so the page can reject a bad HADID immediately.
+// Change both lists. The server is the check that counts.
+//
+// PINNED_RULES are standing bookings. They are rebuilt on every read and
+// cannot be cancelled. dows is 0 Sunday through 6 Saturday. from is the first day.
+// deskHeld blocks WS7.01-22 and HELD_DESKS. Those desks are out of use.
 const ADMIN_PIN = "2109";
 const START = "2026-09-21";
 const END = "2026-12-18";

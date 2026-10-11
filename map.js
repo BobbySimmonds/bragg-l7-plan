@@ -14,6 +14,7 @@ const resetBtn = document.getElementById("resetBtn");
 const tip = document.getElementById("tip");
 const countPill = document.getElementById("countPill");
 const DEFAULT_INFO = "<h3>Tap a village</h3><p>Blue Corporate, green Service Desk. T&I is split: orange ASD (01–22), purple DAP (23–28), gold Infrastructure (29–76).</p>";
+// Out of use on the plan: ASD WS7.01-22, plus WS7.129 and WS7.130. Keep this in step with deskHeld in api/bookings.js.
 function heldWs(ws){var m=/^WS7\.(\d+)$/.exec(ws||"");if(!m)return false;var n=Number(m[1]);return (n>=1&&n<=22)||n===129||n===130;}
 
 let active = null;
