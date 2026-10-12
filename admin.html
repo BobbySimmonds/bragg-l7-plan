@@ -130,7 +130,7 @@ a{color:var(--cyan)}
 const DOW=[{n:1,t:"Mon"},{n:2,t:"Tue"},{n:3,t:"Wed"},{n:4,t:"Thu"},{n:5,t:"Fri"}];
 const $=id=>document.getElementById(id);
 let state=null;
-function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&","<":"<",">":">","\"":""","'":"&#39;"}[c]));}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){if(c==="&")return "&"+"amp;";if(c==="<")return "&"+"lt;";if(c===">")return "&"+"gt;";if(c==='"')return "&"+"quot;";return "&"+"#39;";});}
 function pin(){return sessionStorage.getItem("bragg_admin_pin")||"";}
 function flash(text,bad){const el=$("flash");el.textContent=text||"";el.className="msg"+(bad?" bad":"");}
 async function api(path,body){
@@ -166,18 +166,25 @@ function render(){
   $("held").querySelectorAll("[data-release]").forEach(btn=>btn.onclick=()=>{const p=btn.dataset.release.split("|");run({adminOp:"release",level:Number(p[0]),desk:Number(p[1])});});
 }
 async function unlock(){
-  sessionStorage.setItem("bragg_admin_pin",$("pin").value.trim());
-  const data=await api("/api/bookings?admin=1");
-  if(!data.ok){$("lockMsg").textContent=data.error||"Wrong PIN.";$("lockMsg").className="msg bad";sessionStorage.removeItem("bragg_admin_pin");return;}
-  state=data;
-  $("lock").classList.add("hidden");
-  $("app").classList.remove("hidden");
-  fillLevels($("bookLevel"));fillLevels($("pinLevel"));fillLevels($("holdLevel"));
-  const today=data.today;
-  $("bookDate").value=today;$("bookDate").min=today;$("bookDate").max=data.end;
-  $("lookDate").value=today;$("pinFrom").value=today;$("pinFrom").min=today;$("pinFrom").max=data.end;
-  render();
-  loadDay();
+  $("lockMsg").textContent="Checking…";
+  $("lockMsg").className="msg";
+  try{
+    sessionStorage.setItem("bragg_admin_pin",$("pin").value.trim());
+    const data=await api("/api/bookings?admin=1");
+    if(!data.ok){$("lockMsg").textContent=data.error||"Wrong PIN.";$("lockMsg").className="msg bad";sessionStorage.removeItem("bragg_admin_pin");return;}
+    state=data;
+    $("lock").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    fillLevels($("bookLevel"));fillLevels($("pinLevel"));fillLevels($("holdLevel"));
+    const today=data.today;
+    $("bookDate").value=today;$("bookDate").min=today;$("bookDate").max=data.end;
+    $("lookDate").value=today;$("pinFrom").value=today;$("pinFrom").min=today;$("pinFrom").max=data.end;
+    render();
+    loadDay();
+  }catch(e){
+    $("lockMsg").textContent="Could not open. Refresh and try again.";
+    $("lockMsg").className="msg bad";
+  }
 }
 async function run(body){
   flash("Saving…");
