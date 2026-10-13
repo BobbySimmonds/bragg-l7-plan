@@ -120,6 +120,7 @@ const ROSTER={
   jmann:1,
   jmorri17:1,
   jpilch02:1,
+  jscrag01:1,
   jsingh01:1,
   kcarte02:1,
   kkirkl01:1,
