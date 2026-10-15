@@ -219,6 +219,7 @@ function mineRows(){return state.cache.filter(b=>b.mine||b.hadid===state.hadid).
 function floorOf(level){return FLOORS.find(f=>f.level===Number(level))||FLOORS[0]}
 function deskHeld(level,desk){level=Number(level);desk=Number(desk);if(Array.isArray(state.held))return state.held.some(h=>Number(h.level)===level&&Number(h.desk)===desk);if(level===7&&desk>=1&&desk<=22)return true;return HELD.some(h=>h.level===level&&h.desk===desk)}
 function deskName(level,desk){const n=String(desk).padStart(2,"0");if(Number(level)===7)return "WS7."+n;if(Number(level)===8)return "WS8."+n;return "Desk "+n}
+function braggParty(){var now=Date.now();return now>=Date.parse("2026-10-16T00:00:00+10:30")&&now<Date.parse("2026-10-17T00:00:00+10:30");}
 function deskShort(level,desk){if(level===7||level===8)return deskName(level,desk);return "L"+level+" · "+String(desk).padStart(2,"0")}
 function villageOf(level,desk){
   if(Number(level)!==7) return null;
@@ -357,10 +358,11 @@ function paint(){
     const held=deskHeld(state.level,n);
     const pinned=!!(row&&row.pinned);
     const mine=row&&!pinned&&(row.mine||row.hadid===state.hadid);
-    const cls=(held||closed?"past":row?(pinned&&(row.mine||row.hadid===state.hadid)?"mine pinned":pinned?"taken pinned":mine?"mine":"taken"):"free")+(v?" v-"+v.id:"");
+    const party=braggParty()&&Number(state.level)===7&&n===147;
+    const cls=(held||closed?"past":row?(pinned&&(row.mine||row.hadid===state.hadid)?"mine pinned":pinned?"taken pinned":mine?"mine":"taken"):"free")+(v?" v-"+v.id:"")+(party?" bday-desk":"");
     const tag=v?'<span class="tag">'+v.tag+'</span>':"";
     const sub=held?"Out of use":row?(pinned?((row.mine||row.hadid===state.hadid)?"Yours · permanent":("Taken · "+(row.hadid||"Booked"))):(mine?"Yours":("Taken · "+(row.hadid||"Booked")))):(closed?"Closed":"Open");
-    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(held||closed||pinned||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+'</b><div>'+sub+'</div></button>';
+    return '<button class="desk '+cls+'" data-desk="'+n+'" '+(held||closed||pinned||(row&&!mine)?"disabled":"")+'>'+tag+'<b>'+deskName(state.level,n)+(party?" 🎂":"")+'</b><div>'+sub+'</div></button>';
   }).join("")||'<p class="hint">No workstation matches that search.</p>';
   $("grid").querySelectorAll(".desk.free").forEach(el=>el.onclick=()=>bookDesk(Number(el.dataset.desk)));
   $("grid").querySelectorAll(".desk.mine:not(.pinned)").forEach(el=>el.onclick=async()=>{const row=by.get(Number(el.dataset.desk));if(!row||!row.id||row.pinned)return;await cancelRow(row);});
