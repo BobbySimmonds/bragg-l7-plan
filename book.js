@@ -156,6 +156,7 @@ const ROSTER={
   tgaras03:1,
   tvanth01:1,
   ukhan03:1,
+  vlibra01:1,
   vrana04:1,
   vsuram01:1,
   wgalpi01:1
