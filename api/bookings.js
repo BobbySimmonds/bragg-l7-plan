@@ -112,6 +112,7 @@ const ROSTER = {
   iisicha: 1,
   iispcar: 1,
   iisrraj: 1,
+  ipolev01: 1,
   issmisl: 1,
   jbaban01: 1,
   jbrenn08: 1,
@@ -142,6 +143,8 @@ const ROSTER = {
   nhibbe02: 1,
   ntayeb01: 1,
   phodgk01: 1,
+  pgensi01: 1,
+  rfusco01: 1,
   rhasan01: 1,
   rredil01: 1,
   rtaylo24: 1,
@@ -157,8 +160,10 @@ const ROSTER = {
   snesci01: 1,
   stonem: 1,
   tgaras03: 1,
+  tosbor02: 1,
   tvanth01: 1,
   ukhan03: 1,
+  vgajja01: 1,
   vlibra01: 1,
   vrana04: 1,
   vsuram01: 1,
@@ -326,8 +331,9 @@ async function load() {
     if (remote.held) store.held = dedupeHeld(remote.held);
     store.bookings = mergeBookings(store.bookings, remote.bookings, store.tombs);
   }
-  ensureConfig(store);
+  const grew = ensureConfig(store);
   store.bookings = applyPinned(mergeBookings(store.bookings, [], store.tombs));
+  if (grew) await persistRemote(store);
   return store.bookings;
 }
 async function save(bookings) {
@@ -381,10 +387,17 @@ function dedupeHeld(list) {
   return out;
 }
 function ensureConfig(store) {
+  let added = false;
   if (!store.roster || typeof store.roster !== "object" || Array.isArray(store.roster)) {
     store.roster = Object.create(null);
-    Object.keys(ROSTER).forEach(function (k) { store.roster[k] = 1; });
+    added = true;
   }
+  Object.keys(ROSTER).forEach(function (k) {
+    if (!store.roster[k]) {
+      store.roster[k] = 1;
+      added = true;
+    }
+  });
   if (!Array.isArray(store.pins)) store.pins = PINNED_RULES.map(cleanRule).filter(Boolean);
   if (!Array.isArray(store.held)) {
     const held = [];
@@ -393,6 +406,7 @@ function ensureConfig(store) {
     HELD_DESKS.forEach(function (h) { held.push(h); });
     store.held = dedupeHeld(held);
   }
+  return added;
 }
 function isPinned(row) {
   return !!(row && (row.pinned || String(row.id || "").indexOf("pin_") === 0));
