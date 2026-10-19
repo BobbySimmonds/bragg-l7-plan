@@ -122,18 +122,30 @@
   var timers = [];
 
   function jack(i) {
-    var size = 54 + (i % 3) * 14;
-    var left = (i * 41) % 100;
-    var delay = ((i * 17) % 90) / 10;
-    var duration = 9 + (i % 8);
-    return '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="left:' + left + '%;width:' + size + 'px;height:' + (size * 1.2) + 'px;animation-delay:-' + delay + 's;animation-duration:' + duration + 's"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="#f07a0a"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="#ff9a1f"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>';
+    var tones = [
+      ["#e86810", "#ff9a1f"],
+      ["#d24a18", "#ff7040"],
+      ["#f0a01a", "#ffc14a"],
+      ["#c45a22", "#e8883a"],
+      ["#ef7a28", "#ffb060"],
+      ["#b8431c", "#e07040"]
+    ];
+    var tone = tones[i % tones.length];
+    var bubble = i % 7 === 0;
+    var left = bubble ? 8 + (i % 3) * 26 : 2 + ((i * 17) % 90);
+    var delay = (i * 1.7) % 22;
+    var duration = 16 + (i % 5) * 2;
+    var size = 52 + (i % 4) * 12;
+    var svg = '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="width:' + size + 'px;height:' + (size * 1.2) + 'px"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="' + tone[0] + '"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="' + tone[1] + '"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>';
+    var talk = bubble ? '<span class="jk-bubble" style="color:' + tone[1] + ';border-color:' + tone[0] + '">JK wanted more pumpkins</span>' : "";
+    return '<div class="pumpkin-drop" style="left:' + left + '%;animation-delay:-' + delay + 's;animation-duration:' + duration + 's">' + svg + talk + "</div>";
   }
 
   function mountBanner() {
     var root = document.getElementById("occasion");
     if (!root) return;
     var html = '<div class="pumpkins" aria-hidden="true">';
-    for (var i = 0; i < 26; i++) html += jack(i);
+    for (var i = 0; i < 82; i++) html += jack(i);
     html += '</div><div class="bday-banner"><div><div class="bday-kicker">Until 31 October</div><div class="bday-title">Happy Halloween.</div><p class="bday-joke">Book like normal. The pumpkins are not a desk.</p></div><button type="button" class="scare-btn scare-hero" id="scareMe">Scare me</button></div>';
     root.innerHTML = html;
     document.getElementById("scareMe").onclick = function () { nextScare(false); };
