@@ -121,7 +121,7 @@
   var photoReady = false;
   var timers = [];
 
-  function jack(i) {
+  function pumpkinNode(i) {
     var tones = [
       ["#e86810", "#ff9a1f"],
       ["#d24a18", "#ff7040"],
@@ -132,22 +132,116 @@
     ];
     var tone = tones[i % tones.length];
     var bubble = i % 7 === 0;
-    var left = bubble ? 8 + (i % 3) * 26 : 2 + ((i * 17) % 90);
-    var delay = (i * 1.7) % 22;
-    var duration = 16 + (i % 5) * 2;
     var size = 52 + (i % 4) * 12;
-    var svg = '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="width:' + size + 'px;height:' + (size * 1.2) + 'px"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="' + tone[0] + '"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="' + tone[1] + '"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>';
-    var talk = bubble ? '<span class="jk-bubble" style="color:' + tone[1] + ';border-color:' + tone[0] + '">JK wanted more pumpkins</span>' : "";
-    return '<div class="pumpkin-drop" style="left:' + left + '%;animation-delay:-' + delay + 's;animation-duration:' + duration + 's">' + svg + talk + "</div>";
+    var el = document.createElement("div");
+    el.className = "pumpkin-drop";
+    el.innerHTML = '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="width:' + size + 'px;height:' + (size * 1.2) + 'px"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="' + tone[0] + '"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="' + tone[1] + '"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>' +
+      (bubble ? '<span class="jk-bubble" style="color:' + tone[1] + ';border-color:' + tone[0] + '">JK wanted more pumpkins</span>' : "");
+    return { el: el, r: size * 0.42, ox: size / 2, oy: size * 1.2 * (58 / 96) };
+  }
+
+  function startPumpkins(layer) {
+    var balls = [];
+    var w = window.innerWidth || 1200;
+    var i;
+    for (i = 0; i < 82; i++) {
+      var node = pumpkinNode(i);
+      layer.appendChild(node.el);
+      balls.push({
+        el: node.el,
+        r: node.r,
+        ox: node.ox,
+        oy: node.oy,
+        x: 0,
+        y: 0,
+        vx: ((i % 5) - 2) * 22,
+        vy: 50 + (i % 6) * 28
+      });
+    }
+    function place() {
+      var width = window.innerWidth || w;
+      var cols = Math.max(4, Math.floor(width / 120));
+      balls.forEach(function (ball, n) {
+        var col = n % cols;
+        var row = Math.floor(n / cols);
+        ball.x = (col + 0.5) * (width / cols);
+        ball.y = -30 - row * (ball.r * 2 + 80);
+      });
+    }
+    place();
+    var last = 0;
+    function tick(now) {
+      requestAnimationFrame(tick);
+      if (document.hidden) return;
+      var dt = last ? Math.min(0.032, (now - last) / 1000) : 0.016;
+      last = now;
+      var width = window.innerWidth || w;
+      var height = window.innerHeight || 800;
+      var a, b, n, dx, dy, dist, min, nx, ny, overlap, rel, pass;
+      for (n = 0; n < balls.length; n++) {
+        a = balls[n];
+        a.vy += 80 * dt;
+        a.x += a.vx * dt;
+        a.y += a.vy * dt;
+        if (a.x < a.r) { a.x = a.r; a.vx = Math.abs(a.vx); }
+        if (a.x > width - a.r) { a.x = width - a.r; a.vx = -Math.abs(a.vx); }
+        if (a.y - a.r > height + 30) {
+          a.y = -90 - (n % 6) * 36;
+          a.x = a.r + ((n * 97) % Math.max(1, width - a.r * 2));
+          a.vy = 60 + (n % 5) * 24;
+          a.vx = ((n % 5) - 2) * 20;
+        }
+        if (a.vy > 280) a.vy = 280;
+        if (a.vy < -160) a.vy = -160;
+      }
+      for (pass = 0; pass < 3; pass++) {
+        for (n = 0; n < balls.length; n++) {
+          a = balls[n];
+          for (var j = n + 1; j < balls.length; j++) {
+            b = balls[j];
+            dx = b.x - a.x;
+            dy = b.y - a.y;
+            min = a.r + b.r;
+            if (dx > min || dx < -min || dy > min || dy < -min) continue;
+            dist = Math.hypot(dx, dy);
+            if (dist >= min || dist < 0.01) continue;
+            nx = dx / dist;
+            ny = dy / dist;
+            overlap = (min - dist) * 0.5;
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+            rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+            if (rel > 0) continue;
+            rel *= 0.92;
+            a.vx += rel * nx;
+            a.vy += rel * ny;
+            b.vx -= rel * nx;
+            b.vy -= rel * ny;
+          }
+        }
+      }
+      for (n = 0; n < balls.length; n++) {
+        a = balls[n];
+        a.el.style.transform = "translate3d(" + (a.x - a.ox) + "px," + (a.y - a.oy) + "px,0)";
+      }
+    }
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(tick);
   }
 
   function mountBanner() {
     var root = document.getElementById("occasion");
     if (!root) return;
-    var html = '<div class="pumpkins" aria-hidden="true">';
-    for (var i = 0; i < 82; i++) html += jack(i);
-    html += '</div><div class="bday-banner"><div><div class="bday-kicker">Until 31 October</div><div class="bday-title">Happy Halloween.</div><p class="bday-joke">Book like normal. The pumpkins are not a desk.</p></div><button type="button" class="scare-btn scare-hero" id="scareMe">Scare me</button></div>';
-    root.innerHTML = html;
+    var layer = document.createElement("div");
+    layer.className = "pumpkins";
+    layer.setAttribute("aria-hidden", "true");
+    root.appendChild(layer);
+    startPumpkins(layer);
+    var banner = document.createElement("div");
+    banner.className = "bday-banner";
+    banner.innerHTML = '<div><div class="bday-kicker">Until 31 October</div><div class="bday-title">Happy Halloween.</div><p class="bday-joke">Book like normal. The pumpkins are not a desk.</p></div><button type="button" class="scare-btn scare-hero" id="scareMe">Scare me</button>';
+    root.appendChild(banner);
     document.getElementById("scareMe").onclick = function () { nextScare(false); };
   }
 
