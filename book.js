@@ -70,6 +70,7 @@ const ROSTER={
   adonno01:1,
   aether01:1,
   agupta10:1,
+  aharri35:1,
   araj06:1,
   asheek01:1,
   asyed02:1,
