@@ -131,12 +131,10 @@
       ["#b8431c", "#e07040"]
     ];
     var tone = tones[i % tones.length];
-    var bubble = i % 7 === 0;
     var size = 52 + (i % 4) * 12;
     var el = document.createElement("div");
     el.className = "pumpkin-drop";
-    el.innerHTML = '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="width:' + size + 'px;height:' + (size * 1.2) + 'px"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="' + tone[0] + '"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="' + tone[1] + '"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>' +
-      (bubble ? '<span class="jk-bubble" style="color:' + tone[1] + ';border-color:' + tone[0] + '">JK wanted more pumpkins</span>' : "");
+    el.innerHTML = '<svg class="pumpkin" viewBox="0 0 80 96" aria-hidden="true" style="width:' + size + 'px;height:' + (size * 1.2) + 'px"><path d="M34 22c2-14 16-16 18-6 1 6-6 10-10 11" fill="#2f9a46"/><ellipse cx="40" cy="58" rx="34" ry="32" fill="' + tone[0] + '"/><ellipse cx="40" cy="58" rx="28" ry="32" fill="' + tone[1] + '"/><polygon points="20,44 34,44 27,58" fill="#24160c"/><polygon points="46,44 60,44 53,58" fill="#24160c"/><polygon points="40,56 33,66 47,66" fill="#24160c"/><polygon points="16,70 26,64 34,74 40,64 46,74 54,64 64,70 56,82 40,86 24,82" fill="#24160c"/></svg>';
     return { el: el, r: size * 0.42, ox: size / 2, oy: size * 1.2 * (58 / 96) };
   }
 
