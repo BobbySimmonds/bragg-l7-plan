@@ -68,6 +68,7 @@ const ROSTER={
   abukow01:1,
   adarli02:1,
   adonno01:1,
+  adunca04:1,
   aether01:1,
   agupta10:1,
   aharri35:1,
